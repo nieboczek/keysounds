@@ -1,24 +1,25 @@
-use crate::App;
 use rdev::{listen, Event, EventType, Key};
 use std::{
-    sync::{LazyLock, Mutex},
+    sync::{mpsc::Sender, LazyLock, Mutex},
     thread,
 };
+
+use crate::app::Action;
 
 struct HotkeyHandler {
     ctrl_held: bool,
     alt_held: bool,
-    app: &'static mut App,
+    sender: Sender<Action>,
 }
 
 static HANDLER: LazyLock<Mutex<Option<HotkeyHandler>>> = LazyLock::new(|| Mutex::new(None));
 
 impl HotkeyHandler {
-    fn new(app: &'static mut App) -> HotkeyHandler {
+    fn new(sender: Sender<Action>) -> HotkeyHandler {
         HotkeyHandler {
             ctrl_held: false,
             alt_held: false,
-            app,
+            sender,
         }
     }
 
@@ -42,15 +43,18 @@ impl HotkeyHandler {
             return;
         }
 
-        match key {
-            Key::KeyT => self.app.search_and_play(),
-            _ => {}
-        }
+        let _ = match key {
+            Key::KeyT => self.sender.send(Action::SearchAndPlay),
+            Key::KeyY => self.sender.send(Action::SkipToPart),
+            Key::KeyS => self.sender.send(Action::StopAudio),
+            Key::KeyG => self.sender.send(Action::ToggleShitMic),
+            _ => Ok(()),
+        };
     }
 }
 
-pub fn start(app: &'static mut App) {
-    *HANDLER.lock().unwrap() = Some(HotkeyHandler::new(app));
+pub fn start(sender: Sender<Action>) {
+    *HANDLER.lock().unwrap() = Some(HotkeyHandler::new(sender));
 
     thread::spawn(|| {
         if let Err(err) = listen(HotkeyHandler::callback) {
