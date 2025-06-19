@@ -13,6 +13,7 @@ use std::{
 };
 
 impl App {
+    #[inline]
     pub(crate) fn run(
         &mut self,
         terminal: &mut Terminal<CrosstermBackend<Stdout>>,
@@ -39,6 +40,7 @@ impl App {
         Ok(())
     }
 
+    #[inline]
     fn handle_key(&mut self, key_code: KeyCode) -> bool {
         match key_code {
             KeyCode::Char('q') => return true,
@@ -80,10 +82,12 @@ impl App {
         false
     }
 
+    #[inline]
     fn is_separator(&self, idx: usize) -> bool {
         idx == 4
     }
 
+    #[inline]
     fn recieve(&mut self) {
         if let Ok(action) = self.receiver.recv_timeout(Duration::from_millis(1)) {
             match action {
