@@ -1,65 +1,107 @@
+use crossbeam_channel::Receiver;
 use ratatui::widgets::ListState;
+use rodio::{cpal::traits::HostTrait, DeviceTrait, OutputStream, OutputStreamHandle, Sink};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{read_to_string, write},
-    io::ErrorKind,
-    path::PathBuf,
-    sync::mpsc::Receiver,
+    sync::{Arc, Mutex},
+    thread::JoinHandle,
 };
 
-mod implementation;
-mod widget;
+pub(crate) mod audio;
+pub(crate) mod config;
+pub(crate) mod implementation;
+pub(crate) mod widget;
 
-pub struct App {
+pub(crate) struct AudioStateInner {
+    sink1: Sink,
+    sink2: Sink,
+    stop: bool,
+    skip_to: f64,
+}
+
+impl AudioStateInner {
+    pub(crate) fn should_skip(&self) -> bool {
+        self.skip_to > -0.5
+    }
+
+    pub(crate) fn complete_skip(&mut self) {
+        self.skip_to = -1.0;
+    }
+}
+
+type AudioState = Arc<Mutex<AudioStateInner>>;
+
+pub(crate) struct App {
+    _keep_alive: (
+        OutputStream,
+        OutputStreamHandle,
+        OutputStream,
+        OutputStreamHandle,
+    ),
+    play_handle: Option<JoinHandle<()>>,
     receiver: Receiver<Action>,
     state: ListState,
     shit_mic: bool,
     random_audio_triggering: bool,
     config: Config,
+    audio_state: AudioState,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Config {
-    rat_range: (usize, usize),
-    rat_audio_list: Vec<String>,
+pub(crate) struct Audio {
+    name: String,
+    path: String,
+    skip_to: f64,
+    volume: f64,
 }
 
-pub enum Action {
+#[derive(Serialize, Deserialize)]
+pub(crate) struct Config {
+    pub(crate) output_device: String,
+    pub(crate) rat_range: (u32, u32),
+    pub(crate) rat_audio_list: Vec<String>,
+    pub(crate) audios: Vec<Audio>,
+}
+
+pub(crate) enum Action {
     SearchAndPlay,
     SkipToPart,
     StopAudio,
     ToggleShitMic,
 }
 
-fn get_config_file() -> PathBuf {
-    std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("config.toml")
-}
+impl App {
+    pub(crate) fn new(receiver: Receiver<Action>) -> App {
+        let config = config::read_config();
 
-pub(super) fn read_config() -> Config {
-    let contents = match read_to_string(get_config_file()) {
-        Ok(contents) => contents,
-        Err(err) => {
-            if err.kind() != ErrorKind::NotFound {
-                panic!("Couldn't read the config file! {err}");
-            }
+        let (stream1, stream_handle1) =
+            OutputStream::try_default().expect("Default output stream not found");
+        let sink1 = Sink::try_new(&stream_handle1).expect("Failed to create sink");
 
-            let config = Config {
-                rat_range: (600, 900),
-                rat_audio_list: Vec::new(),
-            };
+        let device2 = rodio::cpal::default_host()
+            .output_devices()
+            .unwrap()
+            .find(|d| d.name().unwrap() == config.output_device)
+            .expect("Virtual cable output device not found");
 
-            write_config(&config);
-            return config;
+        let (stream2, stream_handle2) =
+            OutputStream::try_from_device(&device2).expect("Failed to open cable output stream");
+        let sink2 = Sink::try_new(&stream_handle2).expect("Failed to create cable sink");
+
+        App {
+            _keep_alive: (stream1, stream_handle1, stream2, stream_handle2),
+            play_handle: None,
+            receiver,
+            state: ListState::default().with_selected(Some(0)),
+            shit_mic: false,
+            random_audio_triggering: false,
+            config,
+            audio_state: Arc::new(Mutex::new(AudioStateInner {
+                sink1,
+                sink2,
+                stop: false,
+                skip_to: -1.0,
+            })),
         }
-    };
-    toml::from_str::<Config>(&contents).unwrap()
-}
-
-pub(super) fn write_config(config: &Config) {
-    let contents = toml::to_string(&config).unwrap();
-    write(get_config_file(), contents).unwrap();
+    }
 }

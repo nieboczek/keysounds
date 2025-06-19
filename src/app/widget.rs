@@ -6,7 +6,18 @@ use ratatui::{
     widgets::{List, Paragraph, StatefulWidget, Widget},
 };
 
+use crate::config::Setting;
+
 use super::App;
+
+macro_rules! subfield {
+    ($string:expr) => {
+        Text::from(Line::from_iter([
+            Span::raw(" -> ").dark_gray(),
+            Span::raw($string),
+        ]))
+    };
+}
 
 macro_rules! hotkey {
     ($key:expr, $desc:expr) => {
@@ -15,25 +26,6 @@ macro_rules! hotkey {
             Span::raw(concat!("Ctrl+Alt+", $key)).white(),
             Span::raw(concat!(": ", $desc)),
         ])
-    };
-}
-
-macro_rules! subfield {
-    () => {
-        Span::raw(" -> ").dark_gray()
-    };
-}
-
-macro_rules! bool {
-    ($val:expr, $desc:expr) => {
-        Text::from(vec![Line::from(vec![
-            if $val {
-                Span::raw("ON  ").light_green()
-            } else {
-                Span::raw("OFF ").light_red()
-            },
-            Span::raw($desc),
-        ])])
     };
 }
 
@@ -76,25 +68,14 @@ impl App {
     }
 
     fn render_selectables(&mut self, area: Rect, buf: &mut Buffer) {
-        let (start, end) = self.config.rat_range;
-        let audio_count = self.config.rat_audio_list.len();
-
         let items = [
-            bool!(self.shit_mic, "Shit mic mode"),
-            bool!(self.random_audio_triggering, "Random audio triggering"),
-            Text::from(Line::from(vec![
-                subfield!(),
-                Span::raw(format!("range: {}-{}s", start, end)),
-            ])),
-            Text::from(vec![
-                Line::from(vec![
-                    subfield!(),
-                    Span::raw(format!("audio list: [ {} elements ]", audio_count)),
-                ]),
-                Line::default(),
-            ]),
-            Text::from("Reload configs"),
-            Text::from("Exit"),
+            Setting::Bool(self.shit_mic, "Shit mic mode"),
+            Setting::Bool(self.random_audio_triggering, "Random audio triggering"),
+            Setting::AudioList(self.config.rat_audio_list.len()),
+            Setting::Range(self.config.rat_range),
+            Setting::Separator,
+            Setting::Action("Reload configs"),
+            Setting::Action("Exit"),
         ];
 
         StatefulWidget::render(
@@ -103,5 +84,24 @@ impl App {
             buf,
             &mut self.state,
         );
+    }
+}
+
+impl From<Setting> for Text<'_> {
+    fn from(value: Setting) -> Self {
+        match value {
+            Setting::Bool(bool, str) => Text::from(Line::from_iter([
+                if bool {
+                    Span::raw("ON  ").light_green()
+                } else {
+                    Span::raw("OFF ").light_red()
+                },
+                str.into(),
+            ])),
+            Setting::Range((min, max)) => subfield!(format!("range: {}-{}s", min, max)),
+            Setting::AudioList(len) => subfield!(format!("audio list: [ {} elements ]", len)),
+            Setting::Action(str) => str.into(),
+            Setting::Separator => Text::from(Line::default()),
+        }
     }
 }

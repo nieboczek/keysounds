@@ -1,6 +1,7 @@
+use crossbeam_channel::Sender;
 use rdev::{listen, Event, EventType, Key};
 use std::{
-    sync::{mpsc::Sender, LazyLock, Mutex},
+    sync::{LazyLock, Mutex},
     thread,
 };
 
@@ -27,7 +28,7 @@ impl HotkeyHandler {
         let pressed = matches!(event.event_type, EventType::KeyPress(_));
 
         if let EventType::KeyPress(key) | EventType::KeyRelease(key) = event.event_type {
-            if let Some(ref mut handler) = HANDLER.lock().unwrap().as_mut() {
+            if let Some(handler) = HANDLER.lock().unwrap().as_mut() {
                 match key {
                     Key::Alt => handler.alt_held = pressed,
                     Key::ControlLeft => handler.ctrl_held = pressed,
