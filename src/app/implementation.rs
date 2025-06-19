@@ -97,7 +97,7 @@ impl App {
                 Action::SkipToPart => {
                     if let Ok(state) = self.audio_state.lock().as_mut() {
                         if let Some(_) = &mut self.play_handle {
-                            state.skip_to = 69.420;
+                            state.skip_to(69.420);
                         }
                     }
                 }
@@ -106,7 +106,7 @@ impl App {
                         if let Some(handle) = &mut self.play_handle {
                             if !handle.is_finished() {
                                 // set end suffering flag
-                                state.stop = true;
+                                state.stop_audio();
                             }
 
                             state.sink1.stop();

@@ -70,8 +70,8 @@ pub(crate) fn load_and_play(path: &str, state: AudioState) {
 
             if let Ok(state) = state.lock().as_mut() {
                 // check for end suffering flag
-                if state.stop {
-                    state.stop = false;
+                if state.should_stop() {
+                    state.reset();
                     break;
                 } else if state.should_skip() {
                     let seconds = state.skip_to as u64;
@@ -91,7 +91,7 @@ pub(crate) fn load_and_play(path: &str, state: AudioState) {
                         .expect("Seeking failed");
 
                     decoder.reset();
-                    state.complete_skip();
+                    state.reset();
                     state.sink1.clear();
                     state.sink2.clear();
 

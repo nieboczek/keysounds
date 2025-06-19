@@ -15,17 +15,33 @@ pub(crate) mod widget;
 pub(crate) struct AudioStateInner {
     sink1: Sink,
     sink2: Sink,
-    stop: bool,
     skip_to: f64,
 }
 
 impl AudioStateInner {
+    #[inline]
     pub(crate) fn should_skip(&self) -> bool {
         self.skip_to > -0.5
     }
 
-    pub(crate) fn complete_skip(&mut self) {
+    #[inline]
+    pub(crate) fn should_stop(&self) -> bool {
+        self.skip_to < -1.5
+    }
+
+    #[inline]
+    pub(crate) fn reset(&mut self) {
         self.skip_to = -1.0;
+    }
+
+    #[inline]
+    pub(crate) fn stop_audio(&mut self) {
+        self.skip_to = -2.0;
+    }
+
+    #[inline]
+    pub(crate) fn skip_to(&mut self, value: f64) {
+        self.skip_to = value;
     }
 }
 
@@ -51,8 +67,8 @@ pub(crate) struct App {
 pub(crate) struct Audio {
     name: String,
     path: String,
-    skip_to: f64,
     volume: f64,
+    skip_to: f64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -99,7 +115,6 @@ impl App {
             audio_state: Arc::new(Mutex::new(AudioStateInner {
                 sink1,
                 sink2,
-                stop: false,
                 skip_to: -1.0,
             })),
         }
