@@ -19,11 +19,12 @@ pub(crate) fn read_config() -> Config {
         Ok(contents) => contents,
         Err(err) => {
             if err.kind() != ErrorKind::NotFound {
-                panic!("Couldn't read the config file! {err}");
+                panic!("Couldn't read the config file: {err}");
             }
 
             let config = Config {
-                output_device: String::from(""),
+                input_device: String::new(),
+                output_device: String::from("CABLE Input (VB-Audio Virtual Cable)"),
                 rat_range: (600, 900),
                 rat_audio_list: Vec::new(),
                 audios: Vec::new(),

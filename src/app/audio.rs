@@ -1,5 +1,5 @@
-use std::{fs::File, thread, time::Duration};
 use rodio::buffer::SamplesBuffer;
+use std::{fs::File, thread, time::Duration};
 use symphonia::{
     core::{
         audio::{AudioBufferRef, Signal},
@@ -8,7 +8,7 @@ use symphonia::{
         io::MediaSourceStream,
         units::Time,
     },
-    default::{get_probe, get_codecs},
+    default::{get_codecs, get_probe},
 };
 
 use crate::app::AudioState;
@@ -79,7 +79,7 @@ pub(crate) fn load_and_play(path: &str, state: AudioState) {
                         seconds: seconds,
                         frac: state.skip_to - seconds as f64,
                     };
-                    
+
                     format
                         .seek(
                             SeekMode::Coarse,
@@ -107,8 +107,10 @@ pub(crate) fn load_and_play(path: &str, state: AudioState) {
                 state.sink2.append(source);
             }
 
-            // TODO: this "solves" (not really) the loading too much shit at once issue.
-            thread::sleep(Duration::from_millis(20));
+            // 1152.0 being samples per frame, 1 packet should have 1 frame
+            let secs_per_frame = 1152.0 / sample_rate as f64;
+            // -0.002 (-2ms), because we can't trust technology
+            thread::sleep(Duration::from_secs_f64(secs_per_frame - 0.002));
         }
     }
 }

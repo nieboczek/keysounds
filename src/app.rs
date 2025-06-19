@@ -73,6 +73,7 @@ pub(crate) struct Audio {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Config {
+    pub(crate) input_device: String,
     pub(crate) output_device: String,
     pub(crate) rat_range: (u32, u32),
     pub(crate) rat_audio_list: Vec<String>,
