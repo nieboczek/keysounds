@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
@@ -21,12 +23,25 @@ macro_rules! subfield {
 
 macro_rules! hotkey {
     ($key:expr, $desc:expr) => {
-        Line::from(vec![
+        Line::from_iter([
             Span::raw("-> ").dark_gray(),
             Span::raw(concat!("Ctrl+Alt+", $key)).white(),
             Span::raw(concat!(": ", $desc)),
         ])
     };
+}
+
+#[inline]
+fn format_time_left(dur: Duration) -> String {
+    let string = dur.as_secs().to_string();
+    let len = string.len();
+
+    string + "s" + match len {
+        0 => unreachable!(),
+        1 => "  ",
+        2 => " ",
+        3.. => "",
+    }
 }
 
 impl Widget for &mut App {
@@ -40,13 +55,17 @@ impl Widget for &mut App {
 
         App::render_hotkeys(hotkey_area, buf);
         self.render_player(player_area, buf);
-        self.render_selectables(selectables_area, buf);
+        if self.inputting {
+            self.render_input(selectables_area, buf);
+        } else {
+            self.render_selectables(selectables_area, buf);
+        }
     }
 }
 
 impl App {
     fn render_hotkeys(area: Rect, buf: &mut Buffer) {
-        Paragraph::new(Text::from(vec![
+        Paragraph::new(Text::from_iter([
             hotkey!("T", "Search and play audio."),
             hotkey!("Y", "Skip audio to target time."),
             hotkey!("S", "Stop audio."),
@@ -59,12 +78,50 @@ impl App {
         //  37s  Audio Name
         //  >>-- RANDOM TRIGGER
 
-        let time = "69s ";
-        let name = "bullshit";
+        let time = format_time_left(
+            self.audio_meta
+                .duration
+                .saturating_sub(self.sinks.0.get_pos()),
+        );
+        let name = if let Some(audio) = &self.audio {
+            &audio.name
+        } else {
+            ""
+        };
         let animation = "----";
-        let note = "RANDOM TRIGGER";
+        let note = if self.audio_meta.randomly_triggered {
+            "RANDOM TRIGGER"
+        } else {
+            ""
+        };
 
-        Paragraph::new(format!("  {time} {name}\n  {animation} {note}\n")).render(area, buf);
+        Paragraph::new(format!("  {time} {name}\n  {animation} {note}")).render(area, buf);
+    }
+
+    fn render_input(&self, area: Rect, buf: &mut Buffer) {
+        // Search: what
+        // Matches: what, what is love, what the hell
+
+        let matches = self
+            .config
+            .audios
+            .iter()
+            .filter_map(|audio| {
+                audio
+                    .name
+                    .to_ascii_lowercase()
+                    .contains(&self.input.to_ascii_lowercase())
+                    .then_some(&audio.name)
+            })
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        Paragraph::new(Text::from_iter([
+            Line::from_iter([Span::raw("Search: ").bold(), Span::raw(&self.input)]),
+            Line::from_iter([Span::raw("Matches: ").bold(), Span::from(matches)]),
+        ]))
+        .render(area, buf);
     }
 
     fn render_selectables(&mut self, area: Rect, buf: &mut Buffer) {
@@ -74,7 +131,7 @@ impl App {
             Setting::AudioList(self.config.rat_audio_list.len()),
             Setting::Range(self.config.rat_range),
             Setting::Separator,
-            Setting::Action("Reload configs"),
+            Setting::Action("Reload config"),
             Setting::Action("Exit"),
         ];
 

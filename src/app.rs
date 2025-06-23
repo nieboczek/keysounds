@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crossbeam_channel::Receiver;
 use ratatui::widgets::ListState;
 use rodio::{
@@ -6,10 +8,24 @@ use rodio::{
 };
 use serde::{Deserialize, Serialize};
 
-pub(crate) mod audio;
+mod audio;
 pub(crate) mod config;
-pub(crate) mod implementation;
-pub(crate) mod widget;
+mod implementation;
+mod widget;
+
+struct AudioMeta {
+    pub(crate) randomly_triggered: bool,
+    pub(crate) duration: Duration,
+}
+
+impl AudioMeta {
+    pub(crate) fn reset() -> AudioMeta {
+        AudioMeta {
+            randomly_triggered: false,
+            duration: Duration::default(),
+        }
+    }
+}
 
 pub(crate) struct App {
     _keep_alive: (
@@ -23,17 +39,34 @@ pub(crate) struct App {
     state: ListState,
     shit_mic: bool,
     random_audio_triggering: bool,
-    selecting_audio: bool,
+    inputting: bool,
+    audio_meta: AudioMeta,
+    audio: Option<Audio>,
+    input: String,
     config: Config,
     sinks: (Sink, Sink),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct Audio {
     name: String,
     path: String,
+    #[serde(default = "default_volume", skip_serializing_if = "is_default_volume")]
     volume: f32,
+    #[serde(default, skip_serializing_if = "is_skip_to_default")]
     skip_to: f32,
+}
+
+fn default_volume() -> f32 {
+    1.0
+}
+
+fn is_default_volume(volume: &f32) -> bool {
+    *volume == 1.0
+}
+
+fn is_skip_to_default(skip_to: &f32) -> bool {
+    *skip_to == 0.0
 }
 
 #[derive(Serialize, Deserialize)]
@@ -89,7 +122,10 @@ impl App {
             state: ListState::default().with_selected(Some(0)),
             shit_mic: false,
             random_audio_triggering: false,
-            selecting_audio: false,
+            inputting: false,
+            audio_meta: AudioMeta::reset(),
+            audio: None,
+            input: String::new(),
             config,
             sinks: (default_sink, output_sink),
         }

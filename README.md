@@ -3,8 +3,6 @@ Play a sound entirely using your keyboard to two output devices.
 Made to be used in a Voice Channel with friends.
 
 # TODO
-- Audio search from config
-- Focus console on Ctrl+Alt+T
 - Shit mic mode (Old Python implementation below)
 ```py
     def mic_loop(self) -> None:
@@ -52,6 +50,7 @@ Made to be used in a Voice Channel with friends.
         output_stream.close()
         p.terminate()
 ```
+- Focus console on Ctrl+Alt+T
 - Player state rendering
 - Random audio triggering
 - Built-in config editor

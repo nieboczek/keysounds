@@ -3,7 +3,7 @@ use rodio::{
         traits::{DeviceTrait, StreamTrait},
         Device, FromSample, Sample, SampleFormat, SizedSample, Stream, StreamConfig,
     },
-    Decoder,
+    Decoder, Source,
 };
 use std::{
     fs::File,
@@ -120,6 +120,8 @@ impl App {
 
         let source0 = Decoder::new(BufReader::new(file0)).unwrap();
         let source1 = Decoder::new(BufReader::new(file1)).unwrap();
+
+        self.audio_meta.duration = source0.total_duration().unwrap_or_default();
 
         self.sinks.0.append(source0);
         self.sinks.1.append(source1);
