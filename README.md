@@ -3,7 +3,6 @@ Play a sound entirely using your keyboard to two output devices.
 Made to be used in a Voice Channel with friends.
 
 # TODO
-- Relay microphone input to output device specified in config
 - Audio search from config
 - Focus console on Ctrl+Alt+T
 - Shit mic mode (Old Python implementation below)

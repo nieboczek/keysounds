@@ -16,12 +16,12 @@ fn init_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
     Terminal::new(CrosstermBackend::new(stdout))
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> io::Result<()> {
     let (sender, receiver) = crossbeam_channel::bounded(1);
     hotkey_handler::start(sender);
 
-    let mut app: App = App::new(receiver);
     let mut terminal = init_terminal()?;
+    let mut app: App = App::new(receiver);
 
     app.run(&mut terminal)?;
 

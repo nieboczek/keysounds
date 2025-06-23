@@ -1,116 +1,130 @@
-use rodio::buffer::SamplesBuffer;
-use std::{fs::File, thread, time::Duration};
-use symphonia::{
-    core::{
-        audio::{AudioBufferRef, Signal},
-        codecs::DecoderOptions,
-        formats::{SeekMode, SeekTo},
-        io::MediaSourceStream,
-        units::Time,
+use rodio::{
+    cpal::{
+        traits::{DeviceTrait, StreamTrait},
+        Device, FromSample, Sample, SampleFormat, SizedSample, Stream, StreamConfig,
     },
-    default::{get_codecs, get_probe},
+    Decoder,
+};
+use std::{
+    fs::File,
+    io::BufReader,
+    sync::{Arc, Mutex},
 };
 
-use crate::app::AudioState;
+use crate::App;
 
-// TODO: replace that std::thread::sleep with a smarter thing.
-// TODO: make this more reliable for something else than mp3 files.
-pub(crate) fn load_and_play(path: &str, state: AudioState) {
-    let file = File::open(path).expect("Failed to open file");
-    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+type AudioBuf = Arc<Mutex<Vec<f32>>>;
 
-    let probed = get_probe()
-        .format(
-            &Default::default(),
-            mss,
-            &Default::default(),
-            &Default::default(),
+fn create_input_stream<T>(device: &Device, config: &StreamConfig, buf: AudioBuf) -> Stream
+where
+    T: Sample + SizedSample,
+    f32: FromSample<T>,
+{
+    let channels = config.channels as usize;
+
+    device
+        .build_input_stream(
+            config,
+            move |data: &[T], _| {
+                let mut buf = buf.lock().unwrap();
+
+                for &sample in data.iter() {
+                    let sample: f32 = Sample::from_sample(sample);
+                    buf.push(sample);
+                }
+
+                let max_size = 48000 * channels;
+                let len = buf.len();
+
+                if len > max_size {
+                    buf.drain(0..len - max_size);
+                }
+            },
+            |err| eprintln!("Input stream error: {err}"),
+            None,
         )
-        .expect("Failed to probe format");
+        .unwrap()
+}
 
-    let mut format = probed.format;
-    let track = format.default_track().expect("No default track");
-    let track_id = track.id;
+fn create_output_stream<T>(device: &Device, config: &StreamConfig, buf: AudioBuf) -> Stream
+where
+    T: Sample + SizedSample + FromSample<f32>,
+{
+    let channels = config.channels as usize;
 
-    let mut decoder = get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
-        .expect("Failed to make decoder");
+    device
+        .build_output_stream(
+            config,
+            move |data: &mut [T], _| {
+                let mut buffer = buf.lock().unwrap();
 
-    while let Ok(packet) = format.next_packet() {
-        if let Ok(decoded) = decoder.decode(&packet) {
-            let spec = decoded.spec();
-            let channels = spec.channels.count() as u16;
-            let sample_rate = spec.rate;
+                for frame in data.chunks_mut(channels) {
+                    let len = buffer.len();
+                    if len >= channels {
+                        // Take samples from buffer
+                        for (i, sample_out) in frame.iter_mut().enumerate() {
+                            if i < len {
+                                let sample: T = Sample::from_sample(buffer[i]);
+                                *sample_out = sample;
+                            }
+                        }
 
-            let mut interleaved = Vec::new();
-
-            match decoded {
-                AudioBufferRef::S16(buf) => {
-                    for i in 0..buf.frames() {
-                        for ch in 0..channels {
-                            interleaved.push(buf.chan(ch as usize)[i]);
+                        // Remove used samples
+                        buffer.drain(0..channels.min(len));
+                    } else {
+                        // No audio available, output silence
+                        for sample_out in frame.iter_mut() {
+                            *sample_out = Sample::from_sample(0.0f32);
                         }
                     }
                 }
-                AudioBufferRef::F32(buf) => {
-                    for i in 0..buf.frames() {
-                        for ch in 0..channels {
-                            let sample = buf.chan(ch as usize)[i];
-                            let clamped = (sample * i16::MAX as f32)
-                                .clamp(i16::MIN as f32, i16::MAX as f32)
-                                as i16;
-                            interleaved.push(clamped);
-                        }
-                    }
-                }
-                _ => panic!("Unsupported audio format"),
-            }
+            },
+            |err| eprintln!("Output stream error: {err}"),
+            None,
+        )
+        .unwrap()
+}
 
-            let source = SamplesBuffer::new(channels, sample_rate, interleaved);
+pub(crate) fn forward_input(input_device: Device, output_device: Device) -> (Stream, Stream) {
+    let input_config = input_device.default_input_config().unwrap();
+    let output_config = output_device.default_output_config().unwrap();
 
-            if let Ok(state) = state.lock().as_mut() {
-                // check for end suffering flag
-                if state.should_stop() {
-                    state.reset();
-                    break;
-                } else if state.should_skip() {
-                    let seconds = state.skip_to as u64;
-                    let time = Time {
-                        seconds: seconds,
-                        frac: state.skip_to - seconds as f64,
-                    };
+    let buf: AudioBuf = Arc::new(Mutex::new(Vec::new()));
+    let buf_clone = Arc::clone(&buf);
 
-                    format
-                        .seek(
-                            SeekMode::Coarse,
-                            SeekTo::Time {
-                                time: time,
-                                track_id: Some(track_id),
-                            },
-                        )
-                        .expect("Seeking failed");
-
-                    decoder.reset();
-                    state.reset();
-                    state.sink1.clear();
-                    state.sink2.clear();
-
-                    state.sink1.append(source.clone());
-                    state.sink2.append(source);
-
-                    state.sink1.play();
-                    state.sink2.play();
-                    continue;
-                }
-
-                state.sink1.append(source.clone());
-                state.sink2.append(source);
-            }
-
-            // 1152.0 being samples per frame, 1 packet should have 1 frame
-            let secs_per_frame = 1152.0 / sample_rate as f64;
-            // -0.002 (-2ms), because we can't trust technology
-            thread::sleep(Duration::from_secs_f64(secs_per_frame - 0.002));
+    let input_stream = match input_config.sample_format() {
+        SampleFormat::F32 => {
+            create_input_stream::<f32>(&input_device, &input_config.into(), buf_clone)
         }
+        _ => panic!("Formats other than F32 are not supported on input streams"),
+    };
+
+    let output_stream = match output_config.sample_format() {
+        SampleFormat::F32 => {
+            create_output_stream::<f32>(&output_device, &output_config.into(), buf)
+        }
+        _ => panic!("Formats other than F32 are not supported on output streams"),
+    };
+
+    input_stream.play().unwrap();
+    output_stream.play().unwrap();
+
+    (input_stream, output_stream)
+}
+
+impl App {
+    #[inline]
+    pub(crate) fn play_file(&mut self, path: &str, volume: f32) {
+        let file0 = File::open(path).unwrap();
+        let file1 = File::open(path).unwrap();
+
+        let source0 = Decoder::new(BufReader::new(file0)).unwrap();
+        let source1 = Decoder::new(BufReader::new(file1)).unwrap();
+
+        self.sinks.0.append(source0);
+        self.sinks.1.append(source1);
+
+        self.sinks.0.set_volume(volume);
+        self.sinks.1.set_volume(volume);
     }
 }

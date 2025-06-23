@@ -8,7 +8,5 @@ ratatui = "0.29.0"
 rdev = "0.5.3"
 serde = { version = "1.0.219", features = ["derive"] }
 toml = "0.8.22"
-cpal = "0.16.0"
-symphonia = { version = "0.5.4", features = ["mp3"] }
 crossbeam-channel = "0.5.15"
 rodio = { version = "0.20.1", features = ["crossbeam-channel"] }

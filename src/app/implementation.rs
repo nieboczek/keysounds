@@ -1,5 +1,5 @@
 use super::{Action, App};
-use crate::{audio, config};
+use crate::config;
 use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
     prelude::CrosstermBackend,
@@ -7,8 +7,6 @@ use ratatui::{
 };
 use std::{
     io::{self, Stdout},
-    sync::Arc,
-    thread,
     time::Duration,
 };
 
@@ -92,31 +90,21 @@ impl App {
         if let Ok(action) = self.receiver.recv_timeout(Duration::from_millis(1)) {
             match action {
                 Action::SearchAndPlay => {
-                    let state = Arc::clone(&self.audio_state);
-
-                    self.play_handle = Some(thread::spawn(move || {
-                        audio::load_and_play("D:/Useful Folder/mp3/sound_effects/dream.mp3", state);
-                    }));
+                    self.play_file("D:/Useful Folder/mp3/sound_effects/dream.mp3", 1.0);
                 }
                 Action::SkipToPart => {
-                    if let Ok(state) = self.audio_state.lock().as_mut() {
-                        if let Some(_) = &mut self.play_handle {
-                            state.skip_to(69.420);
-                        }
-                    }
+                    self.sinks
+                        .0
+                        .try_seek(Duration::from_secs_f64(69.420))
+                        .unwrap();
+                    self.sinks
+                        .1
+                        .try_seek(Duration::from_secs_f64(69.420))
+                        .unwrap();
                 }
                 Action::StopAudio => {
-                    if let Ok(state) = self.audio_state.lock().as_mut() {
-                        if let Some(handle) = &mut self.play_handle {
-                            if !handle.is_finished() {
-                                // set end suffering flag
-                                state.stop_audio();
-                            }
-
-                            state.sink1.stop();
-                            state.sink2.stop();
-                        }
-                    }
+                    self.sinks.0.stop();
+                    self.sinks.1.stop();
                 }
                 Action::ToggleShitMic => {
                     self.shit_mic = !self.shit_mic;
