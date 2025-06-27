@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::atomic::Ordering, time::Duration};
 
 use ratatui::{
     buffer::Buffer,
@@ -36,12 +36,14 @@ fn format_time_left(dur: Duration) -> String {
     let string = dur.as_secs().to_string();
     let len = string.len();
 
-    string + "s" + match len {
-        0 => unreachable!(),
-        1 => "  ",
-        2 => " ",
-        3.. => "",
-    }
+    string
+        + "s"
+        + match len {
+            0 => unreachable!(),
+            1 => "  ",
+            2 => " ",
+            3.. => "",
+        }
 }
 
 impl Widget for &mut App {
@@ -126,7 +128,7 @@ impl App {
 
     fn render_selectables(&mut self, area: Rect, buf: &mut Buffer) {
         let items = [
-            Setting::Bool(self.shit_mic, "Shit mic mode"),
+            Setting::Bool(self.shit_mic.load(Ordering::Relaxed), "Shit mic mode"),
             Setting::Bool(self.random_audio_triggering, "Random audio triggering"),
             Setting::AudioList(self.config.rat_audio_list.len()),
             Setting::Range(self.config.rat_range),

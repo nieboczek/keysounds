@@ -1,35 +1,34 @@
 use rodio::{
     cpal::{
         traits::{DeviceTrait, StreamTrait},
-        Device, FromSample, Sample, SampleFormat, SizedSample, Stream, StreamConfig,
+        Device, Stream, StreamConfig,
     },
     Decoder, Source,
 };
 use std::{
     fs::File,
     io::BufReader,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 
 use crate::App;
 
 type AudioBuf = Arc<Mutex<Vec<f32>>>;
 
-fn create_input_stream<T>(device: &Device, config: &StreamConfig, buf: AudioBuf) -> Stream
-where
-    T: Sample + SizedSample,
-    f32: FromSample<T>,
-{
+#[inline]
+fn create_input_stream(device: &Device, config: &StreamConfig, buf: AudioBuf) -> Stream {
     let channels = config.channels as usize;
 
     device
         .build_input_stream(
             config,
-            move |data: &[T], _| {
+            move |data: &[f32], _| {
                 let mut buf = buf.lock().unwrap();
 
                 for &sample in data.iter() {
-                    let sample: f32 = Sample::from_sample(sample);
                     buf.push(sample);
                 }
 
@@ -46,16 +45,19 @@ where
         .unwrap()
 }
 
-fn create_output_stream<T>(device: &Device, config: &StreamConfig, buf: AudioBuf) -> Stream
-where
-    T: Sample + SizedSample + FromSample<f32>,
-{
+#[inline]
+fn create_output_stream(
+    device: &Device,
+    config: &StreamConfig,
+    buf: AudioBuf,
+    shit_mic: Arc<AtomicBool>,
+) -> Stream {
     let channels = config.channels as usize;
 
     device
         .build_output_stream(
             config,
-            move |data: &mut [T], _| {
+            move |data: &mut [f32], _| {
                 let mut buffer = buf.lock().unwrap();
 
                 for frame in data.chunks_mut(channels) {
@@ -64,8 +66,25 @@ where
                         // Take samples from buffer
                         for (i, sample_out) in frame.iter_mut().enumerate() {
                             if i < len {
-                                let sample: T = Sample::from_sample(buffer[i]);
-                                *sample_out = sample;
+                                if shit_mic.load(Ordering::Relaxed) {
+                                    let sample_i16 = (buffer[i] * i16::MAX as f32) as i16;
+
+                                    // if a sample is too quiet BOOST IT 3 TIMES or do nothing
+                                    let boosted = if sample_i16.abs() < 2000 {
+                                        sample_i16 * 3
+                                    } else {
+                                        sample_i16
+                                    };
+                                    // BOOST THE AUDIO 5 TIMES and then CLIP IT A LOT
+                                    let distorted =
+                                        (boosted as i32 * 5).clamp(-10000, 10000) as i16;
+                                    // QUIETER AUDIO 2 TIMES and cast to f32
+                                    let sample = (distorted / 2) as f32 / i16::MAX as f32;
+
+                                    *sample_out = sample;
+                                } else {
+                                    *sample_out = buffer[i];
+                                }
                             }
                         }
 
@@ -74,7 +93,7 @@ where
                     } else {
                         // No audio available, output silence
                         for sample_out in frame.iter_mut() {
-                            *sample_out = Sample::from_sample(0.0f32);
+                            *sample_out = 0.0;
                         }
                     }
                 }
@@ -85,26 +104,20 @@ where
         .unwrap()
 }
 
-pub(crate) fn forward_input(input_device: Device, output_device: Device) -> (Stream, Stream) {
+#[inline]
+pub(crate) fn forward_input(
+    input_device: Device,
+    output_device: Device,
+    shit_mic: Arc<AtomicBool>,
+) -> (Stream, Stream) {
     let input_config = input_device.default_input_config().unwrap();
     let output_config = output_device.default_output_config().unwrap();
 
     let buf: AudioBuf = Arc::new(Mutex::new(Vec::new()));
     let buf_clone = Arc::clone(&buf);
 
-    let input_stream = match input_config.sample_format() {
-        SampleFormat::F32 => {
-            create_input_stream::<f32>(&input_device, &input_config.into(), buf_clone)
-        }
-        _ => panic!("Formats other than F32 are not supported on input streams"),
-    };
-
-    let output_stream = match output_config.sample_format() {
-        SampleFormat::F32 => {
-            create_output_stream::<f32>(&output_device, &output_config.into(), buf)
-        }
-        _ => panic!("Formats other than F32 are not supported on output streams"),
-    };
+    let input_stream = create_input_stream(&input_device, &input_config.into(), buf_clone);
+    let output_stream = create_output_stream(&output_device, &output_config.into(), buf, shit_mic);
 
     input_stream.play().unwrap();
     output_stream.play().unwrap();
@@ -123,10 +136,16 @@ impl App {
 
         self.audio_meta.duration = source0.total_duration().unwrap_or_default();
 
+        self.sinks.0.clear();
+        self.sinks.1.clear();
+
         self.sinks.0.append(source0);
         self.sinks.1.append(source1);
 
         self.sinks.0.set_volume(volume);
         self.sinks.1.set_volume(volume);
+
+        self.sinks.0.play();
+        self.sinks.1.play();
     }
 }

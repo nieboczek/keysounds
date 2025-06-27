@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
 
 use crossbeam_channel::Receiver;
 use ratatui::widgets::ListState;
@@ -37,7 +40,7 @@ pub(crate) struct App {
     ),
     receiver: Receiver<Action>,
     state: ListState,
-    shit_mic: bool,
+    shit_mic: Arc<AtomicBool>,
     random_audio_triggering: bool,
     inputting: bool,
     audio_meta: AudioMeta,
@@ -113,14 +116,17 @@ impl App {
             .find(|device| device.name().unwrap_or_default() == config.input_device)
             .expect("Could not find input device");
 
+        // shit_mic atomic bool initialized to false
+        let shit_mic = Arc::new(AtomicBool::default());
+
         // Start microphone forwarding to virtual output
-        let _ss = audio::forward_input(input_device, output_device);
+        let _ss = audio::forward_input(input_device, output_device, Arc::clone(&shit_mic));
 
         App {
             _keep_alive: (_s1, _sh1, _s2, _sh2, _ss),
             receiver,
             state: ListState::default().with_selected(Some(0)),
-            shit_mic: false,
+            shit_mic,
             random_audio_triggering: false,
             inputting: false,
             audio_meta: AudioMeta::reset(),

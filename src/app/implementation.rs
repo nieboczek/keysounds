@@ -7,6 +7,7 @@ use ratatui::{
 };
 use std::{
     io::{self, Stdout},
+    sync::atomic::Ordering,
     time::Duration,
 };
 
@@ -107,7 +108,9 @@ impl App {
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
                 match self.state.selected().unwrap() {
-                    0 => self.shit_mic = !self.shit_mic,
+                    0 => {
+                        let _ = self.shit_mic.fetch_not(Ordering::Relaxed);
+                    }
                     1 => self.random_audio_triggering = !self.random_audio_triggering,
                     2 => {} // TODO (range)
                     3 => {} // TODO (audio list)
@@ -151,7 +154,7 @@ impl App {
                     self.sinks.1.stop();
                 }
                 Action::ToggleShitMic => {
-                    self.shit_mic = !self.shit_mic;
+                    self.shit_mic.fetch_not(Ordering::Relaxed);
                 }
             }
         }
