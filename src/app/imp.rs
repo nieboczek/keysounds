@@ -11,6 +11,16 @@ use std::{
     time::Duration,
 };
 
+#[cfg(windows)]
+use winapi::um::{
+    wincon::GetConsoleWindow,
+    winuser::{
+        INPUT_u, SendInput, SetForegroundWindow, SetWindowPos, ShowWindow, HWND_NOTOPMOST,
+        HWND_TOPMOST, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, SWP_NOMOVE, SWP_NOSIZE,
+        SWP_SHOWWINDOW, SW_RESTORE, VK_MENU,
+    },
+};
+
 impl App {
     #[inline]
     pub(crate) fn run(
@@ -115,11 +125,12 @@ impl App {
                     2 => {} // TODO (range)
                     3 => {} // TODO (audio list)
                     4 => {} // separator
-                    5 => self.config = config::read_config(),
+                    5 => self.config = config::load_config(),
                     6 => return true,
                     _ => unreachable!(),
                 }
             }
+            KeyCode::Char('r') => self.config = config::load_config(),
             _ => {}
         }
         false
@@ -135,6 +146,7 @@ impl App {
         if let Ok(action) = self.receiver.recv_timeout(Duration::from_millis(5)) {
             match action {
                 Action::SearchAndPlay => {
+                    App::focus_console();
                     self.inputting = true;
                     return true;
                 }
@@ -159,5 +171,62 @@ impl App {
             }
         }
         return false;
+    }
+
+    #[inline]
+    fn focus_console() {
+        #[cfg(windows)]
+        unsafe {
+            // Fuck you I'm not feeling like using some bullshit ass API to do this. (deprecated)
+            let hwnd = GetConsoleWindow();
+
+            if hwnd.is_null() {
+                return;
+            }
+
+            // https://stackoverflow.com/questions/30512267/keeping-the-terminal-in-focus
+            // Windows is the reason why we can't have nice things in life.
+            ShowWindow(hwnd, SW_RESTORE);
+            SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE);
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE);
+            SetWindowPos(
+                hwnd,
+                HWND_NOTOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_SHOWWINDOW + SWP_NOMOVE + SWP_NOSIZE,
+            );
+
+            // This is the simplest way I found how to send a fucking Alt key
+            let mut inputs = [
+                INPUT {
+                    type_: INPUT_KEYBOARD,
+                    u: std::mem::zeroed::<INPUT_u>(),
+                },
+                INPUT {
+                    type_: INPUT_KEYBOARD,
+                    u: std::mem::zeroed::<INPUT_u>(),
+                },
+            ];
+
+            // Alt press
+            inputs[0].u.ki_mut().wVk = VK_MENU as u16;
+            inputs[0].u.ki_mut().wScan = 0;
+            inputs[0].u.ki_mut().dwFlags = 0;
+            inputs[0].u.ki_mut().time = 0;
+            inputs[0].u.ki_mut().dwExtraInfo = 0;
+
+            // Alt release
+            inputs[1].u.ki_mut().wVk = VK_MENU as u16;
+            inputs[1].u.ki_mut().wScan = 0;
+            inputs[1].u.ki_mut().dwFlags = KEYEVENTF_KEYUP;
+            inputs[1].u.ki_mut().time = 0;
+            inputs[1].u.ki_mut().dwExtraInfo = 0;
+
+            SendInput(2, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
+            SetForegroundWindow(hwnd);
+        }
     }
 }

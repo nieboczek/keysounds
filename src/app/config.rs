@@ -14,7 +14,7 @@ fn get_config_file() -> PathBuf {
         .join("config.toml")
 }
 
-pub(crate) fn read_config() -> Config {
+pub(crate) fn load_config() -> Config {
     let contents = match read_to_string(get_config_file()) {
         Ok(contents) => contents,
         Err(err) => {

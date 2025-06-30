@@ -595,6 +595,7 @@ dependencies = [
  "rodio",
  "serde",
  "toml",
+ "winapi",
 ]
 
 [[package]]

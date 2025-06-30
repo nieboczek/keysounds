@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 mod audio;
 pub(crate) mod config;
-mod implementation;
+mod imp;
 mod widget;
 
 struct AudioMeta {
@@ -90,7 +90,7 @@ pub(crate) enum Action {
 
 impl App {
     pub(crate) fn new(receiver: Receiver<Action>) -> App {
-        let config = config::read_config();
+        let config = config::load_config();
         let host = cpal::default_host();
 
         // Default Output Sink
