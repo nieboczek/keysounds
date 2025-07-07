@@ -1,7 +1,7 @@
 use super::{Action, App};
-use crate::{app::AudioMeta, config};
+use crate::{app::AudioMeta, config, StateStatus};
 use ratatui::{
-    crossterm::event::{self, Event, KeyCode, KeyEventKind},
+    crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
     prelude::CrosstermBackend,
     Terminal,
 };
@@ -27,51 +27,85 @@ impl App {
         &mut self,
         terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     ) -> io::Result<()> {
+        self.render(terminal)?;
+
         loop {
-            let ignore_next_key = self.recieve();
+            let mut state_status = self.recieve();
 
-            terminal.draw(|frame| {
-                frame.render_widget(&mut *self, frame.area());
-            })?;
-
-            if event::poll(Duration::from_millis(5))? {
+            if event::poll(Duration::from_millis(1))? {
                 if let Event::Key(key) = event::read()? {
-                    if key.kind != KeyEventKind::Press {
-                        continue;
-                    }
-
-                    if ignore_next_key {
-                        continue;
-                    }
-
-                    if self.inputting {
-                        match key.code {
-                            KeyCode::Char(ch) => self.input.push(ch),
-                            KeyCode::Backspace => {
-                                let _ = self.input.pop();
-                            }
-                            KeyCode::Esc => {
-                                self.input = String::new();
-                                self.inputting = false;
-                            }
-                            KeyCode::Enter => self.submit_input(),
-                            _ => {}
-                        }
-                        continue;
-                    }
-
-                    if self.handle_key(key.code) {
-                        break;
-                    }
+                    self.handle_input(key, &mut state_status);
                 }
             }
 
             if self.sinks.0.empty() {
                 self.audio_meta = AudioMeta::reset();
                 self.audio = None;
+                state_status |= StateStatus::Updated;
+            }
+
+            if self.audio.is_some() {
+                state_status |= StateStatus::IdleRender;
+            }
+
+            self.idle_render_counter -= 1;
+            match state_status {
+                StateStatus::Unaffected => {}
+                StateStatus::IdleRender => {
+                    if self.idle_render_counter <= 0 {
+                        self.idle_render_counter %= 1000;
+                        self.render(terminal)?;
+                    }
+                }
+                StateStatus::Updated => self.render(terminal)?,
+                StateStatus::IgnoreNextKeyPress => unreachable!(),
+                StateStatus::Quit => break,
             }
         }
         Ok(())
+    }
+
+    #[inline]
+    fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
+        terminal.draw(|frame| {
+            frame.render_widget(&mut *self, frame.area());
+        })?;
+        Ok(())
+    }
+
+    #[inline]
+    fn handle_input(&mut self, key: KeyEvent, state_status: &mut StateStatus) {
+        if key.kind != KeyEventKind::Press {
+            return;
+        }
+
+        if *state_status == StateStatus::IgnoreNextKeyPress {
+            *state_status = StateStatus::Updated;
+            return;
+        }
+
+        if self.inputting {
+            match key.code {
+                KeyCode::Char(ch) => self.input.push(ch),
+                KeyCode::Backspace => {
+                    let _ = self.input.pop();
+                }
+                KeyCode::Esc => {
+                    self.input = String::new();
+                    self.inputting = false;
+                }
+                KeyCode::Enter => self.submit_input(),
+                _ => {}
+            }
+            return;
+        }
+
+        if key.code == KeyCode::Char('q') {
+            *state_status = StateStatus::Quit;
+            return;
+        }
+
+        *state_status |= self.handle_key(key.code);
     }
 
     #[inline]
@@ -92,9 +126,8 @@ impl App {
     }
 
     #[inline]
-    fn handle_key(&mut self, key_code: KeyCode) -> bool {
+    fn handle_key(&mut self, key_code: KeyCode) -> StateStatus {
         match key_code {
-            KeyCode::Char('q') => return true,
             KeyCode::Down => {
                 // 7 being the size of the list
                 let next_selection = self.state.selected().unwrap() + 1;
@@ -122,18 +155,18 @@ impl App {
                         let _ = self.shit_mic.fetch_not(Ordering::Relaxed);
                     }
                     1 => self.random_audio_triggering = !self.random_audio_triggering,
-                    2 => {} // TODO (range)
-                    3 => {} // TODO (audio list)
-                    4 => {} // separator
-                    5 => self.config = config::load_config(),
-                    6 => return true,
+                    2 => return StateStatus::Unaffected, // TODO (range)
+                    3 => return StateStatus::Unaffected, // TODO (audio list)
+                    4 => return StateStatus::Unaffected, // separator
+                    5 => self.config = config::load_config(), // Reload config
+                    6 => return StateStatus::Quit,       // Exit
                     _ => unreachable!(),
                 }
             }
             KeyCode::Char('r') => self.config = config::load_config(),
             _ => {}
-        }
-        false
+        };
+        StateStatus::Updated
     }
 
     #[inline]
@@ -142,13 +175,13 @@ impl App {
     }
 
     #[inline]
-    fn recieve(&mut self) -> bool {
-        if let Ok(action) = self.receiver.recv_timeout(Duration::from_millis(5)) {
+    fn recieve(&mut self) -> StateStatus {
+        if let Ok(action) = self.receiver.recv_timeout(Duration::from_millis(1)) {
             match action {
                 Action::SearchAndPlay => {
                     App::focus_console();
                     self.inputting = true;
-                    return true;
+                    return StateStatus::IgnoreNextKeyPress;
                 }
                 Action::SkipToPart => {
                     if let Some(audio) = &self.audio {
@@ -169,12 +202,14 @@ impl App {
                     self.shit_mic.fetch_not(Ordering::Relaxed);
                 }
             }
+            return StateStatus::Updated;
         }
-        return false;
+        StateStatus::Unaffected
     }
 
     #[inline]
     fn focus_console() {
+        // Windows is the reason why we can't have nice things in life.
         #[cfg(windows)]
         unsafe {
             // Fuck you I'm not feeling like using some bullshit ass API to do this. (deprecated)
@@ -185,7 +220,6 @@ impl App {
             }
 
             // https://stackoverflow.com/questions/30512267/keeping-the-terminal-in-focus
-            // Windows is the reason why we can't have nice things in life.
             ShowWindow(hwnd, SW_RESTORE);
             SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE);
             SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE);

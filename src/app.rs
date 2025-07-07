@@ -1,4 +1,5 @@
 use std::{
+    ops::BitOrAssign,
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
@@ -32,12 +33,11 @@ impl AudioMeta {
 
 pub(crate) struct App {
     _keep_alive: (
-        OutputStream,
-        OutputStreamHandle,
-        OutputStream,
-        OutputStreamHandle,
+        (OutputStream, OutputStreamHandle),
+        (OutputStream, OutputStreamHandle),
         (Stream, Stream),
     ),
+    idle_render_counter: i16,
     receiver: Receiver<Action>,
     state: ListState,
     shit_mic: Arc<AtomicBool>,
@@ -88,6 +88,40 @@ pub(crate) enum Action {
     ToggleShitMic,
 }
 
+#[derive(PartialEq)]
+pub(crate) enum StateStatus {
+    Unaffected,
+    IdleRender,
+    Updated,
+    IgnoreNextKeyPress,
+    Quit,
+}
+
+impl BitOrAssign for StateStatus {
+    /// Updates the state so it doesn't overwrite `StateStatus::Quit` / `StateStatus::Updated`.
+    fn bitor_assign(&mut self, rhs: Self) {
+        match rhs {
+            StateStatus::Unaffected => {}
+            StateStatus::IdleRender => {
+                if *self == StateStatus::Unaffected {
+                    *self = StateStatus::IdleRender;
+                }
+            }
+            StateStatus::Updated => {
+                if matches!(self, StateStatus::Unaffected | StateStatus::IdleRender) {
+                    *self = StateStatus::Updated;
+                }
+            }
+            StateStatus::IgnoreNextKeyPress => {
+                if *self != StateStatus::Quit {
+                    *self = StateStatus::IgnoreNextKeyPress;
+                }
+            }
+            StateStatus::Quit => *self = StateStatus::Quit,
+        }
+    }
+}
+
 impl App {
     pub(crate) fn new(receiver: Receiver<Action>) -> App {
         let config = config::load_config();
@@ -123,7 +157,8 @@ impl App {
         let _ss = audio::forward_input(input_device, output_device, Arc::clone(&shit_mic));
 
         App {
-            _keep_alive: (_s1, _sh1, _s2, _sh2, _ss),
+            _keep_alive: ((_s1, _sh1), (_s2, _sh2), _ss),
+            idle_render_counter: 1000,
             receiver,
             state: ListState::default().with_selected(Some(0)),
             shit_mic,
