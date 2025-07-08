@@ -1,7 +1,6 @@
-use crossbeam_channel::Sender;
-use rdev::{listen, Event, EventType, Key};
+use rdev::{Event, EventType, Key};
 use std::{
-    sync::{LazyLock, Mutex},
+    sync::{Arc, LazyLock, Mutex},
     thread,
 };
 
@@ -10,17 +9,17 @@ use crate::app::Action;
 struct HotkeyHandler {
     ctrl_held: bool,
     alt_held: bool,
-    sender: Sender<Action>,
+    channel: Arc<Mutex<Action>>,
 }
 
 static HANDLER: LazyLock<Mutex<Option<HotkeyHandler>>> = LazyLock::new(|| Mutex::new(None));
 
 impl HotkeyHandler {
-    fn new(sender: Sender<Action>) -> HotkeyHandler {
+    fn new(channel: Arc<Mutex<Action>>) -> HotkeyHandler {
         HotkeyHandler {
             ctrl_held: false,
             alt_held: false,
-            sender,
+            channel,
         }
     }
 
@@ -44,22 +43,28 @@ impl HotkeyHandler {
             return;
         }
 
-        let _ = match key {
-            Key::KeyT => self.sender.send(Action::SearchAndPlay),
-            Key::KeyY => self.sender.send(Action::SkipToPart),
-            Key::KeyS => self.sender.send(Action::StopAudio),
-            Key::KeyG => self.sender.send(Action::ToggleShitMic),
-            _ => Ok(()),
+        let action = match key {
+            Key::KeyT => Action::SearchAndPlay,
+            Key::KeyY => Action::SkipToPart,
+            Key::KeyS => Action::StopAudio,
+            Key::KeyG => Action::ToggleShitMic,
+            _ => return,
         };
+
+        let mut guard = self.channel.lock().unwrap();
+        *guard = action;
     }
 }
 
-pub fn start(sender: Sender<Action>) {
-    *HANDLER.lock().unwrap() = Some(HotkeyHandler::new(sender));
+pub fn start() -> Arc<Mutex<Action>> {
+    let channel = Arc::new(Mutex::new(Action::None));
+    *HANDLER.lock().unwrap() = Some(HotkeyHandler::new(Arc::clone(&channel)));
 
     thread::spawn(|| {
-        if let Err(err) = listen(HotkeyHandler::callback) {
+        if let Err(err) = rdev::listen(HotkeyHandler::callback) {
             eprintln!("Global hotkey error: {:?}", err);
         }
     });
+
+    return channel;
 }

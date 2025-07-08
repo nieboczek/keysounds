@@ -85,17 +85,24 @@ impl App {
                 .duration
                 .saturating_sub(self.sinks.0.get_pos()),
         );
+
         let name = if let Some(audio) = &self.audio {
             &audio.name
         } else {
             ""
         };
+
         let animation = "----";
+
+        #[cfg(not(feature = "render_call_counter"))]
         let note = if self.audio_meta.randomly_triggered {
             "RANDOM TRIGGER"
         } else {
             ""
         };
+
+        #[cfg(feature = "render_call_counter")]
+        let note = self.render_call_counter.to_string();
 
         Paragraph::new(format!("  {time} {name}\n  {animation} {note}")).render(area, buf);
     }

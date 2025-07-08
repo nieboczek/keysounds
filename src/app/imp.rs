@@ -8,7 +8,7 @@ use ratatui::{
 use std::{
     io::{self, Stdout},
     sync::atomic::Ordering,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 #[cfg(windows)]
@@ -27,10 +27,11 @@ impl App {
         &mut self,
         terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     ) -> io::Result<()> {
+        let mut idle_render_deadline = Instant::now();
         self.render(terminal)?;
 
         loop {
-            let mut state_status = self.recieve();
+            let mut state_status = self.handle_actions();
 
             if event::poll(Duration::from_millis(1))? {
                 if let Event::Key(key) = event::read()? {
@@ -38,35 +39,42 @@ impl App {
                 }
             }
 
-            if self.sinks.0.empty() {
-                self.audio_meta = AudioMeta::reset();
-                self.audio = None;
-                state_status |= StateStatus::Updated;
-            }
-
             if self.audio.is_some() {
-                state_status |= StateStatus::IdleRender;
+                if self.sinks.0.empty() {
+                    self.audio_meta = AudioMeta::reset();
+                    self.audio = None;
+                    state_status |= StateStatus::Updated;
+                } else {
+                    state_status |= StateStatus::IdleRender;
+                }
             }
 
-            self.idle_render_counter -= 1;
             match state_status {
                 StateStatus::Unaffected => {}
                 StateStatus::IdleRender => {
-                    if self.idle_render_counter <= 0 {
-                        self.idle_render_counter %= 1000;
+                    if idle_render_deadline <= Instant::now() {
+                        idle_render_deadline += Duration::from_secs(1);
                         self.render(terminal)?;
                     }
                 }
-                StateStatus::Updated => self.render(terminal)?,
-                StateStatus::IgnoreNextKeyPress => unreachable!(),
+                StateStatus::Updated | StateStatus::IgnoreNextKeyPress => self.render(terminal)?,
                 StateStatus::Quit => break,
             }
         }
         Ok(())
     }
 
+    #[cfg(feature = "render_call_counter")]
+    #[inline]
+    fn increment_render_call_counter(&mut self) {
+        self.render_call_counter += 1;
+    }
+
     #[inline]
     fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
+        #[cfg(feature = "render_call_counter")]
+        self.increment_render_call_counter();
+
         terminal.draw(|frame| {
             frame.render_widget(&mut *self, frame.area());
         })?;
@@ -80,7 +88,6 @@ impl App {
         }
 
         if *state_status == StateStatus::IgnoreNextKeyPress {
-            *state_status = StateStatus::Updated;
             return;
         }
 
@@ -97,6 +104,8 @@ impl App {
                 KeyCode::Enter => self.submit_input(),
                 _ => {}
             }
+
+            *state_status = StateStatus::Updated;
             return;
         }
 
@@ -164,7 +173,7 @@ impl App {
                 }
             }
             KeyCode::Char('r') => self.config = config::load_config(),
-            _ => {}
+            _ => return StateStatus::Unaffected,
         };
         StateStatus::Updated
     }
@@ -175,36 +184,40 @@ impl App {
     }
 
     #[inline]
-    fn recieve(&mut self) -> StateStatus {
-        if let Ok(action) = self.receiver.recv_timeout(Duration::from_millis(1)) {
-            match action {
-                Action::SearchAndPlay => {
-                    App::focus_console();
-                    self.inputting = true;
-                    return StateStatus::IgnoreNextKeyPress;
-                }
-                Action::SkipToPart => {
-                    if let Some(audio) = &self.audio {
-                        let dur = Duration::from_secs_f32(audio.skip_to);
+    fn handle_actions(&mut self) -> StateStatus {
+        let mut guard = self.channel.lock().unwrap();
 
-                        let _ = self.sinks.0.try_seek(dur);
-                        let _ = self.sinks.1.try_seek(dur);
-                    }
-                }
-                Action::StopAudio => {
-                    self.audio_meta = AudioMeta::reset();
-                    self.audio = None;
+        match *guard {
+            Action::SearchAndPlay => {
+                App::focus_console();
+                self.inputting = true;
 
-                    self.sinks.0.stop();
-                    self.sinks.1.stop();
-                }
-                Action::ToggleShitMic => {
-                    self.shit_mic.fetch_not(Ordering::Relaxed);
+                *guard = Action::None;
+                return StateStatus::IgnoreNextKeyPress;
+            }
+            Action::SkipToPart => {
+                if let Some(audio) = &self.audio {
+                    let dur = Duration::from_secs_f32(audio.skip_to);
+
+                    let _ = self.sinks.0.try_seek(dur);
+                    let _ = self.sinks.1.try_seek(dur);
                 }
             }
-            return StateStatus::Updated;
+            Action::StopAudio => {
+                self.audio_meta = AudioMeta::reset();
+                self.audio = None;
+
+                self.sinks.0.stop();
+                self.sinks.1.stop();
+            }
+            Action::ToggleShitMic => {
+                self.shit_mic.fetch_not(Ordering::Relaxed);
+            }
+            Action::None => return StateStatus::Unaffected,
         }
-        StateStatus::Unaffected
+
+        *guard = Action::None;
+        return StateStatus::Updated;
     }
 
     #[inline]

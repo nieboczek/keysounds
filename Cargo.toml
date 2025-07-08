@@ -8,8 +8,10 @@ ratatui = "0.29.0"
 rdev = "0.5.3"
 serde = { version = "1.0.219", features = ["derive"] }
 toml = "0.8.22"
-crossbeam-channel = "0.5.15"
-rodio = { version = "0.20.1", features = ["crossbeam-channel"] }
+rodio = "0.20.1"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.9"
+
+[features]
+render_call_counter = []

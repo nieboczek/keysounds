@@ -1,16 +1,14 @@
-use std::{
-    ops::BitOrAssign,
-    sync::{atomic::AtomicBool, Arc},
-    time::Duration,
-};
-
-use crossbeam_channel::Receiver;
 use ratatui::widgets::ListState;
 use rodio::{
     cpal::{self, traits::HostTrait, Stream},
     DeviceTrait, OutputStream, OutputStreamHandle, Sink,
 };
 use serde::{Deserialize, Serialize};
+use std::{
+    ops::BitOrAssign,
+    sync::{atomic::AtomicBool, Arc, Mutex},
+    time::Duration,
+};
 
 mod audio;
 pub(crate) mod config;
@@ -37,8 +35,7 @@ pub(crate) struct App {
         (OutputStream, OutputStreamHandle),
         (Stream, Stream),
     ),
-    idle_render_counter: i16,
-    receiver: Receiver<Action>,
+    channel: Arc<Mutex<Action>>,
     state: ListState,
     shit_mic: Arc<AtomicBool>,
     random_audio_triggering: bool,
@@ -47,6 +44,8 @@ pub(crate) struct App {
     audio: Option<Audio>,
     input: String,
     config: Config,
+    #[cfg(feature = "render_call_counter")]
+    render_call_counter: u32,
     sinks: (Sink, Sink),
 }
 
@@ -86,9 +85,10 @@ pub(crate) enum Action {
     SkipToPart,
     StopAudio,
     ToggleShitMic,
+    None,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub(crate) enum StateStatus {
     Unaffected,
     IdleRender,
@@ -98,7 +98,7 @@ pub(crate) enum StateStatus {
 }
 
 impl BitOrAssign for StateStatus {
-    /// Updates the state so it doesn't overwrite `StateStatus::Quit` / `StateStatus::Updated`.
+    /// Updates the state without overwriting more important statuses like `StateStatus::Quit`.
     fn bitor_assign(&mut self, rhs: Self) {
         match rhs {
             StateStatus::Unaffected => {}
@@ -123,7 +123,7 @@ impl BitOrAssign for StateStatus {
 }
 
 impl App {
-    pub(crate) fn new(receiver: Receiver<Action>) -> App {
+    pub(crate) fn new(channel: Arc<Mutex<Action>>) -> App {
         let config = config::load_config();
         let host = cpal::default_host();
 
@@ -158,14 +158,15 @@ impl App {
 
         App {
             _keep_alive: ((_s1, _sh1), (_s2, _sh2), _ss),
-            idle_render_counter: 1000,
-            receiver,
+            channel,
             state: ListState::default().with_selected(Some(0)),
             shit_mic,
             random_audio_triggering: false,
             inputting: false,
             audio_meta: AudioMeta::reset(),
             audio: None,
+            #[cfg(feature = "render_call_counter")]
+            render_call_counter: 0,
             input: String::new(),
             config,
             sinks: (default_sink, output_sink),

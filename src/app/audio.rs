@@ -133,9 +133,7 @@ impl App {
 
         let source0 = Decoder::new(BufReader::new(file0)).unwrap();
         let source1 = Decoder::new(BufReader::new(file1)).unwrap();
-
         self.audio_meta.duration = source0.total_duration().unwrap_or_default();
-        self.idle_render_counter = self.audio_meta.duration.subsec_millis() as i16;
 
         self.sinks.0.clear();
         self.sinks.1.clear();
