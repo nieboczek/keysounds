@@ -199,6 +199,19 @@ impl App {
                 }
             }
             KeyCode::Char('r') => self.config = config::load_config(),
+            #[cfg(feature = "vhs_keybinds")]
+            KeyCode::Char('t') => {
+                App::focus_console();
+                self.inputting = true;
+            }
+            #[cfg(feature = "vhs_keybinds")]
+            KeyCode::Char('s') => {
+                self.audio_meta = AudioMeta::reset();
+                self.audio = None;
+
+                self.sinks.0.stop();
+                self.sinks.1.stop();
+            }
             _ => return StateStatus::Unaffected,
         };
         StateStatus::Updated

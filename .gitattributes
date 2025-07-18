@@ -3,4 +3,5 @@
 
 *.rs       text diff=rust eol=lf
 *.toml     text diff=toml eol=lf
+*.tape     text eol=lf
 Cargo.lock text eol=lf

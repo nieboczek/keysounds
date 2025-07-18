@@ -1,6 +1,8 @@
 # keysounds
+![](examples/showcase.gif)
+
 **keysounds** is a text user interface (TUI) app built in Rust that relays microphone input to a virtual audio output.
-It allows mixing in audio files using global hotkeys.
+It allows mixing in audio files using global hotkeys and more.
 
 ## Features
 - **Microphone forwarding** - Forwards microphone input to virtual output.

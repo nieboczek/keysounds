@@ -16,3 +16,5 @@ winapi = "0.3.9"
 
 [features]
 render_call_counter = []
+# HotkeyHandler doesn't work when keysounds is ran through vhs
+vhs_keybinds = []
