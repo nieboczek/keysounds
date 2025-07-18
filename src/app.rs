@@ -1,7 +1,7 @@
 use ratatui::widgets::ListState;
 use rodio::{
     cpal::{self, traits::HostTrait, Stream},
-    DeviceTrait, OutputStream, OutputStreamHandle, Sink,
+    DeviceTrait, OutputStream, OutputStreamBuilder, Sink,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -30,11 +30,7 @@ impl AudioMeta {
 }
 
 pub(crate) struct App {
-    _keep_alive: (
-        (OutputStream, OutputStreamHandle),
-        (OutputStream, OutputStreamHandle),
-        (Stream, Stream),
-    ),
+    _keep_alive: (OutputStream, OutputStream, (Stream, Stream)),
     channel: Arc<Mutex<Action>>,
     state: ListState,
     shit_mic: Arc<AtomicBool>,
@@ -128,36 +124,37 @@ impl App {
         let host = cpal::default_host();
 
         // Default Output Sink
-        let (_s1, _sh1) =
-            OutputStream::try_default().expect("A default output stream should be created");
-        let default_sink = Sink::try_new(&_sh1).expect("Failed to create sink");
+        let default_out = OutputStreamBuilder::open_default_stream().unwrap();
+        let default_sink = Sink::connect_new(default_out.mixer());
 
         // Virtual Output Sink
-        let output_device = cpal::default_host()
+        let virtual_device = cpal::default_host()
             .output_devices()
             .unwrap()
             .find(|device| device.name().unwrap_or_default() == config.output_device)
             .expect("Virtual cable output device not found");
 
-        let (_s2, _sh2) = OutputStream::try_from_device(&output_device)
-            .expect("Failed to open cable output stream");
-        let output_sink = Sink::try_new(&_sh2).expect("Failed to create cable sink");
+        let virtual_out = OutputStreamBuilder::from_device(virtual_device.clone())
+            .unwrap()
+            .open_stream()
+            .unwrap();
+        let virtual_sink = Sink::connect_new(virtual_out.mixer());
 
         // Microphone Device
-        let input_device = host
+        let microphone_device = host
             .input_devices()
             .unwrap()
             .find(|device| device.name().unwrap_or_default() == config.input_device)
             .expect("Could not find input device");
 
-        // shit_mic atomic bool initialized to false
+        // Shit Mic Mode initialized to false
         let shit_mic = Arc::new(AtomicBool::default());
 
         // Start microphone forwarding to virtual output
-        let _ss = audio::forward_input(input_device, output_device, Arc::clone(&shit_mic));
+        let _ss = audio::forward_input(microphone_device, virtual_device, Arc::clone(&shit_mic));
 
         App {
-            _keep_alive: ((_s1, _sh1), (_s2, _sh2), _ss),
+            _keep_alive: (default_out, virtual_out, _ss),
             channel,
             state: ListState::default().with_selected(Some(0)),
             shit_mic,
@@ -169,7 +166,7 @@ impl App {
             render_call_counter: 0,
             input: String::new(),
             config,
-            sinks: (default_sink, output_sink),
+            sinks: (default_sink, virtual_sink),
         }
     }
 }
