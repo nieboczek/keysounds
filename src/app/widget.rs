@@ -86,12 +86,7 @@ impl App {
                 .saturating_sub(self.sinks.0.get_pos()),
         );
 
-        let name = if let Some(audio) = &self.audio {
-            &audio.name
-        } else {
-            ""
-        };
-
+        let name = self.audio.as_ref().map_or("", |audio| &audio.name);
         let animation = "----";
 
         #[cfg(not(feature = "render_call_counter"))]

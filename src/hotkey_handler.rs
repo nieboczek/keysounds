@@ -15,7 +15,8 @@ struct HotkeyHandler {
 static HANDLER: LazyLock<Mutex<Option<HotkeyHandler>>> = LazyLock::new(|| Mutex::new(None));
 
 impl HotkeyHandler {
-    fn new(channel: Arc<Mutex<Action>>) -> HotkeyHandler {
+    #[inline]
+    const fn new(channel: Arc<Mutex<Action>>) -> HotkeyHandler {
         HotkeyHandler {
             ctrl_held: false,
             alt_held: false,
@@ -23,6 +24,7 @@ impl HotkeyHandler {
         }
     }
 
+    #[inline]
     fn callback(event: Event) {
         let pressed = matches!(event.event_type, EventType::KeyPress(_));
 
@@ -38,7 +40,8 @@ impl HotkeyHandler {
         }
     }
 
-    fn pressed(&mut self, key: Key) {
+    #[inline]
+    fn pressed(&self, key: Key) {
         if !self.ctrl_held || !self.alt_held {
             return;
         }
@@ -56,15 +59,16 @@ impl HotkeyHandler {
     }
 }
 
+#[inline]
 pub fn start() -> Arc<Mutex<Action>> {
     let channel = Arc::new(Mutex::new(Action::None));
     *HANDLER.lock().unwrap() = Some(HotkeyHandler::new(Arc::clone(&channel)));
 
     thread::spawn(|| {
         if let Err(err) = rdev::listen(HotkeyHandler::callback) {
-            eprintln!("Global hotkey error: {:?}", err);
+            eprintln!("Global hotkey error: {err:?}");
         }
     });
 
-    return channel;
+    channel
 }

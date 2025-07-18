@@ -14,7 +14,7 @@ use std::{
     },
 };
 
-use crate::App;
+use crate::{App, Audio};
 
 type AudioBuf = Arc<Mutex<Vec<f32>>>;
 
@@ -28,7 +28,7 @@ fn create_input_stream(device: &Device, config: &StreamConfig, buf: AudioBuf) ->
             move |data: &[f32], _| {
                 let mut buf = buf.lock().unwrap();
 
-                for &sample in data.iter() {
+                for &sample in data {
                     buf.push(sample);
                 }
 
@@ -75,9 +75,11 @@ fn create_output_stream(
                                     } else {
                                         sample_i16
                                     };
+
                                     // BOOST THE AUDIO 5 TIMES and then CLIP IT A LOT
                                     let distorted =
                                         (boosted as i32 * 5).clamp(-10000, 10000) as i16;
+
                                     // QUIETER AUDIO 2 TIMES and cast to f32
                                     let sample = (distorted / 2) as f32 / i16::MAX as f32;
 
@@ -106,8 +108,8 @@ fn create_output_stream(
 
 #[inline]
 pub(crate) fn forward_input(
-    input_device: Device,
-    output_device: Device,
+    input_device: &Device,
+    output_device: &Device,
     shit_mic: Arc<AtomicBool>,
 ) -> (Stream, Stream) {
     let input_config = input_device.default_input_config().unwrap();
@@ -116,8 +118,8 @@ pub(crate) fn forward_input(
     let buf: AudioBuf = Arc::new(Mutex::new(Vec::new()));
     let buf_clone = Arc::clone(&buf);
 
-    let input_stream = create_input_stream(&input_device, &input_config.into(), buf_clone);
-    let output_stream = create_output_stream(&output_device, &output_config.into(), buf, shit_mic);
+    let input_stream = create_input_stream(input_device, &input_config.into(), buf_clone);
+    let output_stream = create_output_stream(output_device, &output_config.into(), buf, shit_mic);
 
     input_stream.play().unwrap();
     output_stream.play().unwrap();
@@ -126,10 +128,9 @@ pub(crate) fn forward_input(
 }
 
 impl App {
-    #[inline]
-    pub(crate) fn play_file(&mut self, path: &str, volume: f32) {
-        let file0 = File::open(path).unwrap();
-        let file1 = File::open(path).unwrap();
+    pub(crate) fn play_audio(&mut self, audio: Audio, randomly_triggered: bool) {
+        let file0 = File::open(&audio.path).unwrap();
+        let file1 = File::open(&audio.path).unwrap();
 
         let source0 = Decoder::new(BufReader::new(file0)).unwrap();
         let source1 = Decoder::new(BufReader::new(file1)).unwrap();
@@ -141,10 +142,13 @@ impl App {
         self.sinks.0.append(source0);
         self.sinks.1.append(source1);
 
-        self.sinks.0.set_volume(volume);
-        self.sinks.1.set_volume(volume);
+        self.sinks.0.set_volume(audio.volume);
+        self.sinks.1.set_volume(audio.volume);
 
         self.sinks.0.play();
         self.sinks.1.play();
+
+        self.audio = Some(audio);
+        self.audio_meta.randomly_triggered = randomly_triggered;
     }
 }

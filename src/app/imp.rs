@@ -1,5 +1,6 @@
 use super::{Action, App};
 use crate::{app::AudioMeta, config, StateStatus};
+use rand::Rng;
 use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
     prelude::CrosstermBackend,
@@ -39,15 +40,8 @@ impl App {
                 }
             }
 
-            if self.audio.is_some() {
-                if self.sinks.0.empty() {
-                    self.audio_meta = AudioMeta::reset();
-                    self.audio = None;
-                    state_status |= StateStatus::Updated;
-                } else {
-                    state_status |= StateStatus::IdleRender;
-                }
-            }
+            state_status |= self.trigger_audio_randomly();
+            state_status |= self.check_playing_audio();
 
             match state_status {
                 StateStatus::Unaffected => {}
@@ -79,6 +73,39 @@ impl App {
             frame.render_widget(&mut *self, frame.area());
         })?;
         Ok(())
+    }
+
+    #[inline]
+    fn check_playing_audio(&mut self) -> StateStatus {
+        if self.audio.is_some() {
+            if self.sinks.0.empty() {
+                self.audio_meta = AudioMeta::reset();
+                self.audio = None;
+                return StateStatus::Updated;
+            }
+            return StateStatus::IdleRender;
+        }
+        StateStatus::Unaffected
+    }
+
+    #[inline]
+    fn trigger_audio_randomly(&mut self) -> StateStatus {
+        if self.random_audio_triggering && self.rat_deadline <= Instant::now() {
+            let idx: usize = self.rng.random_range(0..self.config.rat_audio_list.len());
+            let name = &self.config.rat_audio_list[idx];
+            let audio = self.config.audios.iter().find(|audio| &audio.name == name);
+
+            if let Some(audio) = audio.cloned() {
+                self.play_audio(audio, true);
+            }
+            // TODO: warn here if no audio is found
+
+            let min = self.config.rat_range.0;
+            let max = self.config.rat_range.1;
+            self.rat_deadline += Duration::from_secs_f32(self.rng.random_range(min..=max));
+            return StateStatus::Updated;
+        }
+        StateStatus::Unaffected
     }
 
     #[inline]
@@ -127,8 +154,7 @@ impl App {
         });
 
         if let Some(audio) = option.cloned() {
-            self.play_file(&audio.path, audio.volume);
-            self.audio = Some(audio);
+            self.play_audio(audio, false);
             self.input = String::new();
             self.inputting = false;
         }
@@ -179,7 +205,7 @@ impl App {
     }
 
     #[inline]
-    fn is_separator(&self, idx: usize) -> bool {
+    const fn is_separator(&self, idx: usize) -> bool {
         idx == 4
     }
 
@@ -217,7 +243,7 @@ impl App {
         }
 
         *guard = Action::None;
-        return StateStatus::Updated;
+        StateStatus::Updated
     }
 
     #[inline]

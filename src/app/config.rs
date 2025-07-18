@@ -25,7 +25,7 @@ pub(crate) fn load_config() -> Config {
             let config = Config {
                 input_device: String::new(),
                 output_device: String::from("CABLE Input (VB-Audio Virtual Cable)"),
-                rat_range: (600, 900),
+                rat_range: (600.0, 900.0),
                 rat_audio_list: Vec::new(),
                 audios: Vec::new(),
             };
@@ -45,7 +45,7 @@ pub(crate) fn write_config(config: &Config) {
 #[derive(PartialEq, Debug)]
 pub(crate) enum Setting {
     Bool(bool, &'static str),
-    Range((u32, u32)),
+    Range((f32, f32)),
     AudioList(usize),
     Action(&'static str),
     Separator,
