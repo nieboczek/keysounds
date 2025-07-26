@@ -18,14 +18,12 @@ fn init_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
 
 fn main() -> io::Result<()> {
     let channel = hotkey_handler::start();
-
     let mut terminal = init_terminal()?;
-    let mut app: App = App::new(channel);
+    let mut app = App::new(channel);
 
     app.run(&mut terminal)?;
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
-    Ok(())
+    terminal.show_cursor()
 }
