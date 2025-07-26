@@ -10,15 +10,15 @@ It allows mixing in audio files using global hotkeys and more.
   - `Ctrl+Alt+T` - Play audio
   - `Ctrl+Alt+Y` - Skip current audio to a predefined position (set in config)
   - `Ctrl+Alt+S` - Stop playing current audio
-- **Shit mic mode** - Turns your microphone to a one inside a running microwave<sup title="this is a joke btw">[_[citation needed]()_]</sup> by pressing `Ctrl+Alt+G`.
+- **Shit mic mode** - Turns your microphone to a one inside a running microwave<sup title="this is a joke btw">[_[citation needed](https://en.wikipedia.org/wiki/Joke)_]</sup> by pressing `Ctrl+Alt+G`.
 - **Random audio triggering** - Can be enabled to play a random audio from a configurable list every X to Y seconds.
 
 _Hotkeys are not yet configurable._
 
 ## Installation
-Get a prebuilt for your system (Windows only for now) executable on the [Releases](https://github.com/nieboczek/keysounds/releases) tab or compile it yourself using the steps below.
+Get a prebuilt for your system (Windows only for now) executable on the [Releases](https://github.com/nieboczek/keysounds/releases) tab or compile it yourself by following the steps below.
 
-1. Install Rust and Cargo if not already installed: [rust-lang.org](https://www.rust-lang.org/tools/install)
+1. Install Rust and Cargo if not already installed: [https://rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
 2. Clone this repository:
    ```sh
    git clone https://github.com/nieboczek/keysounds.git
