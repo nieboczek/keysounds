@@ -1,13 +1,13 @@
 use rand::rngs::ThreadRng;
 use ratatui::widgets::ListState;
 use rodio::{
-    cpal::{self, traits::HostTrait, Stream},
     DeviceTrait, OutputStream, OutputStreamBuilder, Sink,
+    cpal::{self, Stream, traits::HostTrait},
 };
 use serde::{Deserialize, Serialize};
 use std::{
     ops::BitOrAssign,
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicBool},
     time::{Duration, Instant},
 };
 

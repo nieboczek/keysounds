@@ -1,10 +1,10 @@
 use super::{Action, App};
-use crate::{app::AudioMeta, config, StateStatus};
+use crate::{StateStatus, app::AudioMeta, config};
 use rand::Rng;
 use ratatui::{
+    Terminal,
     crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
     prelude::CrosstermBackend,
-    Terminal,
 };
 use std::{
     io::{self, Stdout},
@@ -16,9 +16,9 @@ use std::{
 use winapi::um::{
     wincon::GetConsoleWindow,
     winuser::{
-        INPUT_u, SendInput, SetForegroundWindow, SetWindowPos, ShowWindow, HWND_NOTOPMOST,
-        HWND_TOPMOST, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, SWP_NOMOVE, SWP_NOSIZE,
-        SWP_SHOWWINDOW, SW_RESTORE, VK_MENU,
+        HWND_NOTOPMOST, HWND_TOPMOST, INPUT, INPUT_KEYBOARD, INPUT_u, KEYEVENTF_KEYUP, SW_RESTORE,
+        SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SendInput, SetForegroundWindow, SetWindowPos,
+        ShowWindow, VK_MENU,
     },
 };
 

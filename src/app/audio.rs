@@ -1,16 +1,16 @@
 use rodio::{
-    cpal::{
-        traits::{DeviceTrait, StreamTrait},
-        Device, Stream, StreamConfig,
-    },
     Decoder, Source,
+    cpal::{
+        Device, Stream, StreamConfig,
+        traits::{DeviceTrait, StreamTrait},
+    },
 };
 use std::{
     fs::File,
     io::BufReader,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
