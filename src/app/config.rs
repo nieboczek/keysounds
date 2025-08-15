@@ -41,12 +41,3 @@ pub(crate) fn write_config(config: &Config) {
     let contents = toml::to_string(&config).unwrap();
     write(get_config_file(), contents).unwrap();
 }
-
-#[derive(PartialEq, Debug)]
-pub(crate) enum Setting {
-    Bool(bool, &'static str),
-    Range((f32, f32)),
-    AudioList(usize),
-    Action(&'static str),
-    Separator,
-}

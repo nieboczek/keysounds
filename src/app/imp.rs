@@ -1,5 +1,9 @@
 use super::{Action, App};
-use crate::{StateStatus, app::AudioMeta, config};
+use crate::{
+    StateStatus,
+    app::{AudioMeta, MENU_ITEMS},
+    config,
+};
 use rand::Rng;
 use ratatui::{
     Terminal,
@@ -180,7 +184,7 @@ impl App {
             KeyCode::Down => {
                 // 7 being the size of the list
                 let next_selection = self.state.selected().unwrap() + 1;
-                if next_selection < 7 {
+                if next_selection < MENU_ITEMS {
                     self.state.select_next();
 
                     if self.is_separator(next_selection) {
@@ -204,15 +208,17 @@ impl App {
                         let _ = self.shit_mic.fetch_not(Ordering::Relaxed);
                     }
                     1 => self.random_audio_triggering = !self.random_audio_triggering,
-                    2 => return StateStatus::Unaffected, // TODO (range)
-                    3 => return StateStatus::Unaffected, // TODO (audio list)
+                    2 => return StateStatus::Unaffected, // TODO (audio list)
+                    3 => return StateStatus::Unaffected, // TODO (range)
                     4 => return StateStatus::Unaffected, // separator
-                    5 => self.config = config::load_config(), // Reload config
-                    6 => return StateStatus::Quit,       // Exit
+                    5 => return StateStatus::Unaffected, // TODO (Edit config)
+                    6 => self.config = config::load_config(), // Reload config
+                    7 => return StateStatus::Quit,       // Exit
                     _ => unreachable!(),
                 }
             }
             KeyCode::Char('r') => self.config = config::load_config(),
+
             #[cfg(feature = "vhs_keybinds")]
             KeyCode::Char('t') => {
                 App::focus_console();
@@ -226,6 +232,7 @@ impl App {
                 self.sinks.0.stop();
                 self.sinks.1.stop();
             }
+
             _ => return StateStatus::Unaffected,
         };
         StateStatus::Updated

@@ -1,5 +1,5 @@
-use std::{sync::atomic::Ordering, time::Duration};
-
+use super::App;
+use crate::app::MENU_ITEMS;
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
@@ -7,19 +7,7 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{List, Paragraph, StatefulWidget, Widget},
 };
-
-use crate::config::Setting;
-
-use super::App;
-
-macro_rules! subfield {
-    ($string:expr) => {
-        Text::from(Line::from_iter([
-            Span::raw(" -> ").dark_gray(),
-            Span::raw($string),
-        ]))
-    };
-}
+use std::{sync::atomic::Ordering, time::Duration};
 
 macro_rules! hotkey {
     ($key:expr, $desc:expr) => {
@@ -28,6 +16,37 @@ macro_rules! hotkey {
             Span::raw(concat!("Ctrl+Alt+", $key)).white(),
             Span::raw(concat!(": ", $desc)),
         ])
+    };
+}
+
+macro_rules! subfield {
+    ($string:expr) => {
+        Line::from_iter([Span::raw(" -> ").dark_gray(), Span::raw($string)])
+    };
+}
+
+macro_rules! bool {
+    ($bool:expr, $desc:expr) => {
+        Line::from_iter([
+            if $bool {
+                Span::raw("ON  ").light_green()
+            } else {
+                Span::raw("OFF ").light_red()
+            },
+            Span::raw($desc),
+        ])
+    };
+}
+
+macro_rules! sep {
+    () => {
+        Line::default()
+    };
+}
+
+macro_rules! action {
+    ($string:expr) => {
+        Line::from($string)
     };
 }
 
@@ -44,6 +63,25 @@ fn format_time_left(dur: Duration) -> String {
             2 => " ",
             3.. => "",
         }
+}
+
+#[inline]
+fn get_menu_items<'a>(
+    shit_mic: bool,
+    random_audio_triggering: bool,
+    audio_list_len: usize,
+    range: (f32, f32),
+) -> [Line<'a>; MENU_ITEMS] {
+    [
+        bool!(shit_mic, "Shit mic mode"),
+        bool!(random_audio_triggering, "Random audio triggering"),
+        subfield!(format!("audio list: [ {audio_list_len} elements ]")),
+        subfield!(format!("range: {}-{}s", range.0, range.1)),
+        sep!(),
+        action!("Edit config"),
+        action!("Reload config"),
+        action!("Exit"),
+    ]
 }
 
 impl Widget for &mut App {
@@ -66,6 +104,7 @@ impl Widget for &mut App {
 }
 
 impl App {
+    #[inline]
     fn render_hotkeys(area: Rect, buf: &mut Buffer) {
         Paragraph::new(Text::from_iter([
             hotkey!("T", "Search and play audio."),
@@ -76,6 +115,7 @@ impl App {
         .render(area, buf);
     }
 
+    #[inline]
     fn render_player(&self, area: Rect, buf: &mut Buffer) {
         //  37s  Audio Name
         //  >>-- RANDOM TRIGGER
@@ -102,6 +142,7 @@ impl App {
         Paragraph::new(format!("  {time} {name}\n  {animation} {note}")).render(area, buf);
     }
 
+    #[inline]
     fn render_input(&self, area: Rect, buf: &mut Buffer) {
         // Search: what
         // Matches: what, what is love, what the hell
@@ -128,16 +169,14 @@ impl App {
         .render(area, buf);
     }
 
+    #[inline]
     fn render_selectables(&mut self, area: Rect, buf: &mut Buffer) {
-        let items = [
-            Setting::Bool(self.shit_mic.load(Ordering::Relaxed), "Shit mic mode"),
-            Setting::Bool(self.random_audio_triggering, "Random audio triggering"),
-            Setting::AudioList(self.config.rat_audio_list.len()),
-            Setting::Range(self.config.rat_range),
-            Setting::Separator,
-            Setting::Action("Reload config"),
-            Setting::Action("Exit"),
-        ];
+        let items = get_menu_items(
+            self.shit_mic.load(Ordering::Relaxed),
+            self.random_audio_triggering,
+            self.config.rat_audio_list.len(),
+            self.config.rat_range,
+        );
 
         StatefulWidget::render(
             List::new(items).highlight_symbol("* "),
@@ -145,24 +184,5 @@ impl App {
             buf,
             &mut self.state,
         );
-    }
-}
-
-impl From<Setting> for Text<'_> {
-    fn from(value: Setting) -> Self {
-        match value {
-            Setting::Bool(bool, str) => Text::from(Line::from_iter([
-                if bool {
-                    Span::raw("ON  ").light_green()
-                } else {
-                    Span::raw("OFF ").light_red()
-                },
-                str.into(),
-            ])),
-            Setting::Range((min, max)) => subfield!(format!("range: {}-{}s", min, max)),
-            Setting::AudioList(len) => subfield!(format!("audio list: [ {} elements ]", len)),
-            Setting::Action(str) => str.into(),
-            Setting::Separator => Text::from(Line::default()),
-        }
     }
 }

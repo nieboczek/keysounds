@@ -16,6 +16,8 @@ pub(crate) mod config;
 mod imp;
 mod widget;
 
+const MENU_ITEMS: usize = 8;
+
 struct AudioMeta {
     pub(crate) randomly_triggered: bool,
     pub(crate) duration: Duration,
