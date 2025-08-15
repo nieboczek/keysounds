@@ -1,10 +1,9 @@
+use crate::app::Action;
 use rdev::{Event, EventType, Key};
 use std::{
     sync::{Arc, LazyLock, Mutex},
     thread,
 };
-
-use crate::app::Action;
 
 struct HotkeyHandler {
     ctrl_held: bool,

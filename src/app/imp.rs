@@ -1,9 +1,4 @@
-use super::{Action, App};
-use crate::{
-    StateStatus,
-    app::{AudioMeta, MENU_ITEMS},
-    config,
-};
+use crate::app::{Action, App, AudioMeta, MENU_ITEMS, Mode, StateStatus, config};
 use rand::Rng;
 use ratatui::{
     Terminal,
@@ -65,6 +60,7 @@ impl App {
     #[cfg(feature = "render_call_counter")]
     #[inline]
     fn increment_render_call_counter(&mut self) {
+        // Rust doesn't allow applying cfg(feature) directly onto an expression
         self.render_call_counter += 1;
     }
 
@@ -122,7 +118,7 @@ impl App {
             return;
         }
 
-        if self.inputting {
+        if self.mode == Mode::SearchAudio {
             match key.code {
                 KeyCode::Char(ch) => {
                     self.input.push(ch);
@@ -144,7 +140,7 @@ impl App {
                 }
                 KeyCode::Esc => {
                     self.input = String::new();
-                    self.inputting = false;
+                    self.mode = Mode::Normal;
                 }
                 KeyCode::Enter => self.submit_input(),
                 _ => {}
@@ -174,7 +170,7 @@ impl App {
         if let Some(audio) = option.cloned() {
             self.play_audio(audio, false);
             self.input = String::new();
-            self.inputting = false;
+            self.mode = Mode::Normal;
         }
     }
 
@@ -250,7 +246,7 @@ impl App {
         match *guard {
             Action::SearchAndPlay => {
                 App::focus_console();
-                self.inputting = true;
+                self.mode = Mode::SearchAudio;
 
                 *guard = Action::None;
                 return StateStatus::IgnoreNextKeyPress;

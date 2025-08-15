@@ -1,5 +1,4 @@
-use super::App;
-use crate::app::MENU_ITEMS;
+use crate::app::{App, MENU_ITEMS, Mode};
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
@@ -95,10 +94,10 @@ impl Widget for &mut App {
 
         App::render_hotkeys(hotkey_area, buf);
         self.render_player(player_area, buf);
-        if self.inputting {
-            self.render_input(selectables_area, buf);
-        } else {
-            self.render_selectables(selectables_area, buf);
+        match self.mode {
+            Mode::Normal => self.render_selectables(selectables_area, buf),
+            Mode::SearchAudio => self.render_input(selectables_area, buf),
+            Mode::EditConfig => {}
         }
     }
 }

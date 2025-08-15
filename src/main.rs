@@ -1,9 +1,12 @@
-pub(crate) use app::*;
-use ratatui::crossterm::{
-    execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+use app::App;
+use ratatui::{
+    Terminal,
+    backend::CrosstermBackend,
+    crossterm::{
+        execute,
+        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    },
 };
-use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::{self, Stdout};
 
 mod app;

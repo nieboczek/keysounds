@@ -1,3 +1,4 @@
+use crate::app::{App, Audio};
 use rodio::{
     Decoder, Source,
     cpal::{
@@ -13,8 +14,6 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-
-use crate::{App, Audio};
 
 type AudioBuf = Arc<Mutex<Vec<f32>>>;
 
@@ -128,7 +127,7 @@ pub(crate) fn forward_input(
 }
 
 impl App {
-    pub(crate) fn play_audio(&mut self, audio: Audio, randomly_triggered: bool) {
+    pub(super) fn play_audio(&mut self, audio: Audio, randomly_triggered: bool) {
         let file0 = File::open(&audio.path).unwrap();
         let file1 = File::open(&audio.path).unwrap();
 

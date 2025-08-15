@@ -1,10 +1,9 @@
+use crate::app::Config;
 use std::{
     fs::{read_to_string, write},
     io::ErrorKind,
     path::PathBuf,
 };
-
-use super::Config;
 
 fn get_config_file() -> PathBuf {
     std::env::current_exe()
@@ -14,7 +13,7 @@ fn get_config_file() -> PathBuf {
         .join("config.toml")
 }
 
-pub(crate) fn load_config() -> Config {
+pub(super) fn load_config() -> Config {
     let contents = match read_to_string(get_config_file()) {
         Ok(contents) => contents,
         Err(err) => {
@@ -37,7 +36,7 @@ pub(crate) fn load_config() -> Config {
     toml::from_str::<Config>(&contents).unwrap()
 }
 
-pub(crate) fn write_config(config: &Config) {
+pub(super) fn write_config(config: &Config) {
     let contents = toml::to_string(&config).unwrap();
     write(get_config_file(), contents).unwrap();
 }

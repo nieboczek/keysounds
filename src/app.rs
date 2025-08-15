@@ -12,26 +12,11 @@ use std::{
 };
 
 mod audio;
-pub(crate) mod config;
+mod config;
 mod imp;
 mod widget;
 
 const MENU_ITEMS: usize = 8;
-
-struct AudioMeta {
-    pub(crate) randomly_triggered: bool,
-    pub(crate) duration: Duration,
-}
-
-impl AudioMeta {
-    #[inline]
-    pub(crate) fn reset() -> AudioMeta {
-        AudioMeta {
-            randomly_triggered: false,
-            duration: Duration::default(),
-        }
-    }
-}
 
 pub(crate) struct App {
     _keep_alive: (OutputStream, OutputStream, (Stream, Stream)),
@@ -40,7 +25,7 @@ pub(crate) struct App {
     shit_mic: Arc<AtomicBool>,
     random_audio_triggering: bool,
     rat_deadline: Instant,
-    inputting: bool,
+    mode: Mode,
     audio_meta: AudioMeta,
     audio: Option<Audio>,
     input: String,
@@ -52,7 +37,7 @@ pub(crate) struct App {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub(crate) struct Audio {
+struct Audio {
     name: String,
     path: String,
     #[serde(default = "default_volume", skip_serializing_if = "is_default_volume")]
@@ -76,13 +61,28 @@ fn is_skip_to_default(skip_to: &f32) -> bool {
     *skip_to == 0.0
 }
 
+struct AudioMeta {
+    randomly_triggered: bool,
+    duration: Duration,
+}
+
+impl AudioMeta {
+    #[inline]
+    fn reset() -> AudioMeta {
+        AudioMeta {
+            randomly_triggered: false,
+            duration: Duration::default(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
-pub(crate) struct Config {
-    pub(crate) input_device: String,
-    pub(crate) output_device: String,
-    pub(crate) rat_range: (f32, f32),
-    pub(crate) rat_audio_list: Vec<String>,
-    pub(crate) audios: Vec<Audio>,
+struct Config {
+    input_device: String,
+    output_device: String,
+    rat_range: (f32, f32),
+    rat_audio_list: Vec<String>,
+    audios: Vec<Audio>,
 }
 
 pub(crate) enum Action {
@@ -93,13 +93,20 @@ pub(crate) enum Action {
     None,
 }
 
-#[derive(PartialEq, Debug)]
-pub(crate) enum StateStatus {
+#[derive(PartialEq)]
+enum StateStatus {
     Unaffected,
     IdleRender,
     Updated,
     IgnoreNextKeyPress,
     Quit,
+}
+
+#[derive(PartialEq)]
+enum Mode {
+    Normal,
+    SearchAudio,
+    EditConfig,
 }
 
 impl BitOrAssign for StateStatus {
@@ -175,7 +182,7 @@ impl App {
             shit_mic,
             random_audio_triggering: false,
             rat_deadline: Instant::now(),
-            inputting: false,
+            mode: Mode::Normal,
             audio_meta: AudioMeta::reset(),
             audio: None,
             input: String::new(),
