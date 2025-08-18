@@ -120,7 +120,21 @@ impl App {
 
         if self.inputting {
             match key.code {
-                KeyCode::Char(ch) => self.input.push(ch),
+                KeyCode::Char(ch) => {
+                    self.input.push(ch);
+                    let input = &self.input.to_ascii_lowercase();                    
+
+                    for audio in &self.config.audios {
+                        if audio.name.to_ascii_lowercase().contains(input) {
+                            *state_status = StateStatus::Updated;
+                            return;
+                        }
+                    }
+
+                    // Failed to find a match that contains the input
+                    let _ = self.input.pop();
+                    return;
+                },
                 KeyCode::Backspace => {
                     let _ = self.input.pop();
                 }
@@ -132,7 +146,7 @@ impl App {
                 _ => {}
             }
 
-            *state_status = StateStatus::Updated;
+            *state_status |= StateStatus::Updated;
             return;
         }
 
