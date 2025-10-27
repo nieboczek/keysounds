@@ -8,7 +8,7 @@ use rodio::{
 };
 use std::{
     fs::File,
-    io::BufReader,
+    path::Path,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -68,16 +68,8 @@ fn create_output_stream(
                                 if shit_mic.load(Ordering::Relaxed) {
                                     let sample_i16 = (buffer[i] * i16::MAX as f32) as i16;
 
-                                    // if a sample is too quiet BOOST IT 3 TIMES or do nothing
-                                    let boosted = if sample_i16.abs() < 2000 {
-                                        sample_i16 * 3
-                                    } else {
-                                        sample_i16
-                                    };
-
-                                    // BOOST THE AUDIO 5 TIMES and then CLIP IT A LOT
-                                    let distorted =
-                                        (boosted as i32 * 5).clamp(-10000, 10000) as i16;
+                                    // BOOST THE AUDIO 15 TIMES and then CLIP IT A LOT
+                                    let distorted = (sample_i16 as i32 * 15).clamp(-10000, 10000) as i16;
 
                                     // QUIETER AUDIO 2 TIMES and cast to f32
                                     let sample = (distorted / 2) as f32 / i16::MAX as f32;
@@ -128,11 +120,12 @@ pub(crate) fn forward_input(
 
 impl App {
     pub(super) fn play_audio(&mut self, audio: Audio, randomly_triggered: bool) {
-        let file0 = File::open(&audio.path).unwrap();
-        let file1 = File::open(&audio.path).unwrap();
+        let path = Path::new(&audio.path);
+        let file0 = File::open(path).unwrap();
+        let file1 = File::open(path).unwrap();
 
-        let source0 = Decoder::new(BufReader::new(file0)).unwrap();
-        let source1 = Decoder::new(BufReader::new(file1)).unwrap();
+        let source0 = Decoder::try_from(file0).unwrap();
+        let source1 = Decoder::try_from(file1).unwrap();
         self.audio_meta.duration = source0.total_duration().unwrap_or_default();
 
         self.sinks.0.clear();

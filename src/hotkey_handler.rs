@@ -1,7 +1,7 @@
 use crate::app::Action;
 use rdev::{Event, EventType, Key};
 use std::{
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, Mutex},
     thread,
 };
 
@@ -11,7 +11,7 @@ struct HotkeyHandler {
     channel: Arc<Mutex<Action>>,
 }
 
-static HANDLER: LazyLock<Mutex<Option<HotkeyHandler>>> = LazyLock::new(|| Mutex::new(None));
+static HANDLER: Mutex<Option<HotkeyHandler>> = Mutex::new(None);
 
 impl HotkeyHandler {
     #[inline]

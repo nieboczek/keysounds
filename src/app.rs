@@ -52,12 +52,12 @@ const fn default_volume() -> f32 {
 }
 
 #[inline]
-fn is_default_volume(volume: &f32) -> bool {
+const fn is_default_volume(volume: &f32) -> bool {
     *volume == 1.0
 }
 
 #[inline]
-fn is_skip_to_default(skip_to: &f32) -> bool {
+const fn is_skip_to_default(skip_to: &f32) -> bool {
     *skip_to == 0.0
 }
 
