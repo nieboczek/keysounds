@@ -69,7 +69,8 @@ fn create_output_stream(
                                     let sample_i16 = (buffer[i] * i16::MAX as f32) as i16;
 
                                     // BOOST THE AUDIO 15 TIMES and then CLIP IT A LOT
-                                    let distorted = (sample_i16 as i32 * 15).clamp(-10000, 10000) as i16;
+                                    let distorted =
+                                        (sample_i16 as i32 * 15).clamp(-10000, 10000) as i16;
 
                                     // QUIETER AUDIO 2 TIMES and cast to f32
                                     let sample = (distorted / 2) as f32 / i16::MAX as f32;

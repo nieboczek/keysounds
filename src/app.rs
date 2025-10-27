@@ -16,8 +16,6 @@ mod config;
 mod imp;
 mod widget;
 
-const MENU_ITEMS: usize = 8;
-
 pub(crate) struct App {
     _keep_alive: (OutputStream, OutputStream, (Stream, Stream)),
     channel: Arc<Mutex<Action>>,
@@ -77,7 +75,7 @@ impl AudioMeta {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Config {
+pub(crate) struct Config {
     input_device: String,
     output_device: String,
     rat_range: (f32, f32),
@@ -104,9 +102,24 @@ enum StateStatus {
 
 #[derive(PartialEq)]
 enum Mode {
+    Null,
+
     Normal,
     SearchAudio,
     EditConfig,
+
+    EditInputDevice,
+    EditOutputDevice,
+    EditAudios,
+
+    SelectedAudioName,
+    SelectedAudioPath,
+    SelectedAudioVolume,
+    SelectedAudioSkipTo,
+    EditAudioName,
+    EditAudioPath,
+    EditAudioVolume,
+    EditAudioSkipTo,
 }
 
 impl BitOrAssign for StateStatus {
@@ -137,7 +150,7 @@ impl BitOrAssign for StateStatus {
 impl App {
     #[inline]
     pub(crate) fn new(channel: Arc<Mutex<Action>>) -> App {
-        let config = config::load_config();
+        let config = Self::load_config_result();
         let host = cpal::default_host();
 
         // Microphone Device
