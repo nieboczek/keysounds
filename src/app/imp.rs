@@ -485,6 +485,7 @@ impl App {
         match *guard {
             Action::SearchAndPlay => {
                 Self::focus_console();
+                self.input.clear();
                 self.mode = Mode::SearchAudio;
 
                 *guard = Action::None;
