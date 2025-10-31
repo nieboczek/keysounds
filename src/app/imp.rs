@@ -158,27 +158,27 @@ impl App {
         }
     }
 
-    pub(crate) fn validate_audio_name(str: &String) -> bool {
+    pub(crate) fn validate_audio_name(str: &str) -> bool {
         !str.is_empty()
     }
 
-    pub(crate) fn validate_audio_path(str: &String) -> bool {
+    pub(crate) fn validate_audio_path(str: &str) -> bool {
         Path::new(str).is_file()
     }
 
-    pub(crate) fn validate_audio_volume(str: &String) -> bool {
+    pub(crate) fn validate_audio_volume(str: &str) -> bool {
         str.parse::<f32>().is_ok_and(|x| x >= 0.0)
     }
 
-    pub(crate) fn validate_audio_skip_to(str: &String) -> bool {
+    pub(crate) fn validate_audio_skip_to(str: &str) -> bool {
         str.parse::<f32>().is_ok_and(|x| x >= 0.0)
     }
 
-    pub(crate) fn validate_input_device(str: &String) -> bool {
+    pub(crate) fn validate_input_device(str: &str) -> bool {
         !str.is_empty() // TODO: replace with better check that scans actual audio devices
     }
 
-    pub(crate) fn validate_output_device(str: &String) -> bool {
+    pub(crate) fn validate_output_device(str: &str) -> bool {
         !str.is_empty() // TODO: replace with better check that scans actual audio devices
     }
 

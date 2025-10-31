@@ -90,7 +90,7 @@ impl App {
     fn m_audio_prop_edit_input(
         &mut self,
         k: KeyCode,
-        validate: impl Fn(&String) -> bool,
+        validate: impl Fn(&str) -> bool,
         modify: impl Fn(&mut Audio, &mut String) -> Mode,
     ) -> StateStatus {
         self.m_add_to_input(
