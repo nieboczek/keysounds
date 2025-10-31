@@ -14,6 +14,7 @@ use std::{
 mod audio;
 mod config;
 mod imp;
+mod input;
 mod widget;
 
 pub(crate) struct App {
