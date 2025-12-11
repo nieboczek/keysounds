@@ -30,13 +30,11 @@ If applicable, add screenshots, gifs or videos to help explain your problem.
 <!--
 Add a description of the systems where you are observing the issue. For example:
 - OS: Linux
-- Terminal Emulator: xterm
 - Audio System: PipeWire
 - Crate version: 0.2.0
 -->
 
 - OS: 
-- Terminal Emulator: 
 - Audio System: 
 - Crate version: 
 

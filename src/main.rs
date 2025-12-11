@@ -1,13 +1,12 @@
 use app::App;
-use ratatui::{
-    Terminal,
-    backend::CrosstermBackend,
-    crossterm::{
-        execute,
-        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
-    },
+use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
+use ratatui::crossterm::execute;
+use ratatui::crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use std::io::{self, Stdout};
+use std::io;
+use std::io::Stdout;
 
 mod app;
 mod hotkey_handler;
@@ -20,9 +19,9 @@ fn init_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
 }
 
 fn main() -> io::Result<()> {
-    let channel = hotkey_handler::start();
+    let action_channel = hotkey_handler::start();
     let mut terminal = init_terminal()?;
-    let mut app = App::new(channel);
+    let mut app = App::new(action_channel);
 
     app.run(&mut terminal)?;
 

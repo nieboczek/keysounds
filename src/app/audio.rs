@@ -1,147 +1,146 @@
-use crate::app::{App, Audio};
-use rodio::{
-    Decoder, Source,
-    cpal::{
-        Device, Stream, StreamConfig,
-        traits::{DeviceTrait, StreamTrait},
-    },
-};
-use std::{
-    fs::File,
-    path::Path,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use crate::app::{App, Sfx, SfxData};
+use cpal::traits::{DeviceTrait, StreamTrait};
+use cpal::{Device, Stream};
+use ringbuf::HeapRb;
+use ringbuf::traits::{Consumer, Producer, Split};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
-type AudioBuf = Arc<Mutex<Vec<f32>>>;
+pub use decoder::AudioDecoder;
+pub use filter::FilterChain;
 
-#[inline]
-fn create_input_stream(device: &Device, config: &StreamConfig, buf: AudioBuf) -> Stream {
-    let channels = config.channels as usize;
+mod decoder;
+mod filter;
 
-    device
-        .build_input_stream(
-            config,
-            move |data: &[f32], _| {
-                let mut buf = buf.lock().unwrap();
+pub(super) type KeepAlive = (Stream, Stream, Stream);
 
-                for &sample in data {
-                    buf.push(sample);
-                }
+const CHANNELS: usize = 2;
+const BLOCK_FRAMES: usize = 512;
+const BLOCK_SAMPLES: usize = BLOCK_FRAMES * CHANNELS;
 
-                let max_size = 48000 * channels;
-                let len = buf.len();
+const RING_BLOCKS: usize = 8;
+const RING_CAPACITY: usize = BLOCK_SAMPLES * RING_BLOCKS;
 
-                if len > max_size {
-                    buf.drain(0..len - max_size);
-                }
-            },
-            |err| eprintln!("Input stream error: {err}"),
-            None,
-        )
-        .unwrap()
-}
+impl App {
+    pub(super) fn play_sfx(&mut self, sfx: Sfx, randomly_triggered: bool) {
+        let decoder = AudioDecoder::new(&sfx.path);
+        let duration = decoder.total_duration().unwrap_or_default();
 
-#[inline]
-fn create_output_stream(
-    device: &Device,
-    config: &StreamConfig,
-    buf: AudioBuf,
-    shit_mic: Arc<AtomicBool>,
-) -> Stream {
-    let channels = config.channels as usize;
+        let mut guard = self.decoder.lock().unwrap();
+        *guard = Some(decoder);
 
-    device
-        .build_output_stream(
-            config,
-            move |data: &mut [f32], _| {
-                let mut buffer = buf.lock().unwrap();
+        self.sfx_data = Some(SfxData {
+            duration,
+            sfx,
+            randomly_triggered,
+        });
+    }
 
-                for frame in data.chunks_mut(channels) {
-                    let len = buffer.len();
-                    if len >= channels {
-                        // Take samples from buffer
-                        for (i, sample_out) in frame.iter_mut().enumerate() {
-                            if i < len {
-                                if shit_mic.load(Ordering::Relaxed) {
-                                    let sample_i16 = (buffer[i] * i16::MAX as f32) as i16;
+    #[inline]
+    pub(super) fn create_streams(
+        mic_device: &Device,
+        default_out_device: &Device,
+        out_device: &Device,
+        decoder: Arc<Mutex<Option<AudioDecoder>>>,
+    ) -> (Arc<Mutex<FilterChain>>, KeepAlive) {
+        let mic_config = mic_device.default_input_config().unwrap();
+        let default_out_config = default_out_device.default_output_config().unwrap();
+        let out_config = out_device.default_output_config().unwrap();
 
-                                    // BOOST THE AUDIO 15 TIMES and then CLIP IT A LOT
-                                    let distorted =
-                                        (sample_i16 as i32 * 15).clamp(-10000, 10000) as i16;
+        let sample_rate = default_out_config.sample_rate().0;
+        let filter_chain = Arc::new(Mutex::new(FilterChain::new(sample_rate)));
 
-                                    // QUIETER AUDIO 2 TIMES and cast to f32
-                                    let sample = (distorted / 2) as f32 / i16::MAX as f32;
+        let mic_rb: HeapRb<f32> = HeapRb::new(RING_CAPACITY);
+        let decoder_rb: HeapRb<f32> = HeapRb::new(RING_CAPACITY);
+        let decoder_too_rb: HeapRb<f32> = HeapRb::new(RING_CAPACITY);
 
-                                    *sample_out = sample;
-                                } else {
-                                    *sample_out = buffer[i];
-                                }
+        let (mut mic_prod, mut mic_cons) = mic_rb.split();
+        let (mut decoder_prod, mut decoder_cons) = decoder_rb.split();
+        let (mut decoder_too_prod, mut decoder_too_cons) = decoder_too_rb.split();
+
+        let mic_stream = mic_device
+            .build_input_stream(
+                &mic_config.into(),
+                move |data: &[f32], _| {
+                    mic_prod.push_slice(data);
+                },
+                |err| eprintln!("Input stream error: {err}"),
+                None,
+            )
+            .unwrap();
+
+        let default_out_stream = default_out_device
+            .build_output_stream(
+                &default_out_config.into(),
+                move |data: &mut [f32], _| {
+                    decoder_cons.pop_slice(data);
+                },
+                |err| eprintln!("Default output stream error: {err}"),
+                None,
+            )
+            .unwrap();
+
+        let filter_chain_too = Arc::clone(&filter_chain);
+        let out_stream = out_device
+            .build_output_stream(
+                &out_config.into(),
+                move |data: &mut [f32], _| {
+                    let mut mic_buf = vec![0.0f32; data.len()];
+                    let mut decoder_buf = vec![0.0f32; data.len()];
+
+                    decoder_too_cons.pop_slice(&mut decoder_buf);
+                    mic_cons.pop_slice(&mut mic_buf);
+
+                    let mut guard = filter_chain_too.lock().unwrap();
+                    for i in 0..data.len() {
+                        data[i] = guard.filter(mic_buf[i]) + decoder_buf[i];
+                    }
+                },
+                |err| eprintln!("Output stream error: {err}"),
+                None,
+            )
+            .unwrap();
+
+        thread::spawn(move || {
+            let mut buf = [0.0f32; BLOCK_SAMPLES];
+            loop {
+                let mut guard = decoder.lock().unwrap();
+                let Some(decoder) = guard.as_mut() else {
+                    thread::sleep(Duration::from_millis(5));
+                    continue;
+                };
+
+                let mut eof = false;
+                for frame in 0..BLOCK_FRAMES {
+                    for ch in 0..CHANNELS {
+                        match decoder.next_sample() {
+                            Some(sample) => buf[frame * CHANNELS + ch] = sample,
+                            None => {
+                                eof = true;
+                                buf[frame * CHANNELS + ch] = 0.0;
                             }
-                        }
-
-                        // Remove used samples
-                        buffer.drain(0..channels.min(len));
-                    } else {
-                        // No audio available, output silence
-                        for sample_out in frame.iter_mut() {
-                            *sample_out = 0.0;
                         }
                     }
                 }
-            },
-            |err| eprintln!("Output stream error: {err}"),
-            None,
-        )
-        .unwrap()
-}
 
-#[inline]
-pub(crate) fn forward_input(
-    input_device: &Device,
-    output_device: &Device,
-    shit_mic: Arc<AtomicBool>,
-) -> (Stream, Stream) {
-    let input_config = input_device.default_input_config().unwrap();
-    let output_config = output_device.default_output_config().unwrap();
+                if eof {
+                    // TODO: this should set self.sfx_data = None, but that is a minor bug
+                    // delete decoder
+                    *guard = None;
+                }
+                std::mem::drop(guard);
 
-    let buf: AudioBuf = Arc::new(Mutex::new(Vec::new()));
-    let buf_clone = Arc::clone(&buf);
+                decoder_prod.push_slice(&buf);
+                decoder_too_prod.push_slice(&buf);
+                thread::sleep(Duration::from_micros(100));
+            }
+        });
 
-    let input_stream = create_input_stream(input_device, &input_config.into(), buf_clone);
-    let output_stream = create_output_stream(output_device, &output_config.into(), buf, shit_mic);
+        mic_stream.play().unwrap();
+        default_out_stream.play().unwrap();
+        out_stream.play().unwrap();
 
-    input_stream.play().unwrap();
-    output_stream.play().unwrap();
-
-    (input_stream, output_stream)
-}
-
-impl App {
-    pub(super) fn play_audio(&mut self, audio: Audio, randomly_triggered: bool) {
-        let path = Path::new(&audio.path);
-        let file0 = File::open(path).unwrap();
-        let file1 = File::open(path).unwrap();
-
-        let source0 = Decoder::try_from(file0).unwrap();
-        let source1 = Decoder::try_from(file1).unwrap();
-        self.audio_meta.duration = source0.total_duration().unwrap_or_default();
-
-        self.sinks.0.clear();
-        self.sinks.1.clear();
-
-        self.sinks.0.append(source0);
-        self.sinks.1.append(source1);
-
-        self.sinks.0.set_volume(audio.volume);
-        self.sinks.1.set_volume(audio.volume);
-
-        self.sinks.0.play();
-        self.sinks.1.play();
-
-        self.audio = Some(audio);
-        self.audio_meta.randomly_triggered = randomly_triggered;
+        (filter_chain, (mic_stream, default_out_stream, out_stream))
     }
 }

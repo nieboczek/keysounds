@@ -1,47 +1,32 @@
-use crate::app::{Action, App, AudioMeta, Mode, StateStatus};
+use crate::app::{Action, App, Mode, StateStatus};
 use rand::Rng;
-use ratatui::{
-    Terminal,
-    backend::CrosstermBackend,
-    crossterm::event::{self, Event},
-};
-use std::{
-    io::{self, Stdout},
-    path::Path,
-    sync::atomic::Ordering,
-    time::{Duration, Instant},
-};
-
-#[cfg(windows)]
-use winapi::um::{
-    wincon::GetConsoleWindow,
-    winuser::{
-        HWND_NOTOPMOST, HWND_TOPMOST, INPUT, INPUT_KEYBOARD, INPUT_u, KEYEVENTF_KEYUP, SW_RESTORE,
-        SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SendInput, SetForegroundWindow, SetWindowPos,
-        ShowWindow, VK_MENU,
-    },
-};
+use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
+use ratatui::crossterm::event;
+use ratatui::crossterm::event::Event;
+use std::io;
+use std::io::Stdout;
+use std::path::Path;
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
 
 impl App {
     #[inline]
-    pub(crate) fn run(
-        &mut self,
-        terminal: &mut Terminal<CrosstermBackend<Stdout>>,
-    ) -> io::Result<()> {
+    pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
         let mut idle_render_deadline = Instant::now();
         self.render(terminal)?;
 
         loop {
             let mut state_status = self.handle_actions();
 
-            if event::poll(Duration::from_millis(1))? {
+            if event::poll(Duration::from_millis(5))? {
                 if let Event::Key(key) = event::read()? {
                     self.handle_input(key, &mut state_status);
                 }
             }
 
-            state_status |= self.trigger_audio_randomly();
-            state_status |= self.check_playing_audio();
+            state_status |= self.trigger_sfx_randomly();
+            state_status |= self.check_playing_sfx();
 
             match state_status {
                 StateStatus::Unaffected => {}
@@ -59,17 +44,12 @@ impl App {
         Ok(())
     }
 
-    #[cfg(feature = "render_call_counter")]
-    #[inline]
-    fn increment_render_call_counter(&mut self) {
-        // Rust doesn't allow applying cfg(feature) directly onto an expression
-        self.render_call_counter += 1;
-    }
-
     #[inline]
     fn render(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
         #[cfg(feature = "render_call_counter")]
-        self.increment_render_call_counter();
+        {
+            self.render_call_counter += 1;
+        }
 
         terminal.draw(|frame| {
             frame.render_widget(&mut *self, frame.area());
@@ -78,11 +58,11 @@ impl App {
     }
 
     #[inline]
-    fn check_playing_audio(&mut self) -> StateStatus {
-        if self.audio.is_some() {
-            if self.sinks.0.empty() {
-                self.audio_meta = AudioMeta::reset();
-                self.audio = None;
+    fn check_playing_sfx(&mut self) -> StateStatus {
+        if self.sfx_data.is_some() {
+            if false {
+                // TODO: if audio finished
+                self.sfx_data = None;
                 return StateStatus::Updated;
             }
             return StateStatus::IdleRender;
@@ -91,16 +71,16 @@ impl App {
     }
 
     #[inline]
-    fn trigger_audio_randomly(&mut self) -> StateStatus {
-        if self.random_audio_triggering && self.rat_deadline <= Instant::now() {
-            let idx: usize = self.rng.random_range(0..self.config.rat_audio_list.len());
-            let name = &self.config.rat_audio_list[idx];
-            let audio = self.config.audios.iter().find(|audio| &audio.name == name);
+    fn trigger_sfx_randomly(&mut self) -> StateStatus {
+        if self.random_sfx_triggering && self.rat_deadline <= Instant::now() {
+            let idx: usize = self.rng.random_range(0..self.config.rat_sfx_list.len());
+            let name = &self.config.rat_sfx_list[idx];
+            let sfx = self.config.sfx.iter().find(|sfx| &sfx.name == name);
 
-            if let Some(audio) = audio.cloned() {
-                self.play_audio(audio, true);
+            if let Some(sfx) = sfx {
+                self.play_sfx(sfx.clone(), true);
             }
-            // TODO: warn here if no audio is found
+            // TODO: warn here if no sfx is found
 
             let min = self.config.rat_range.0;
             let max = self.config.rat_range.1;
@@ -112,31 +92,28 @@ impl App {
 
     #[inline]
     fn handle_actions(&mut self) -> StateStatus {
-        let mut guard = self.channel.lock().unwrap();
+        let mut guard = self.action_channel.lock().unwrap();
 
         match *guard {
             Action::SearchAndPlay => {
                 Self::focus_console();
                 self.input.clear();
-                self.mode = Mode::SearchAudio;
+                self.mode = Mode::SearchSfx;
 
                 *guard = Action::None;
                 return StateStatus::IgnoreNextKeyPress;
             }
             Action::SkipToPart => {
-                if let Some(audio) = &self.audio {
-                    let dur = Duration::from_secs_f32(audio.skip_to);
-
-                    let _ = self.sinks.0.try_seek(dur);
-                    let _ = self.sinks.1.try_seek(dur);
+                if let Some(data) = &mut self.sfx_data {
+                    let dur = Duration::from_secs_f32(data.sfx.skip_to);
+                    self.decoder.lock().unwrap().as_mut().unwrap().seek(dur);
                 }
             }
-            Action::StopAudio => {
-                self.audio_meta = AudioMeta::reset();
-                self.audio = None;
-
-                self.sinks.0.stop();
-                self.sinks.1.stop();
+            Action::StopSfx => {
+                if let Some(decoder) = self.decoder.lock().unwrap().as_mut() {
+                    decoder.stop();
+                    self.sfx_data = None;
+                }
             }
             Action::ToggleShitMic => {
                 self.shit_mic.fetch_not(Ordering::Relaxed);
@@ -149,36 +126,36 @@ impl App {
     }
 
     #[inline]
-    pub(crate) const fn is_separator(&self, idx: usize) -> bool {
+    pub fn is_separator(&self, idx: usize) -> bool {
         match self.mode {
             Mode::Normal => idx == 4,
             Mode::EditConfig => idx == 2 || idx == 6,
-            Mode::EditAudios => false,
+            Mode::EditSfxs => false,
             _ => unreachable!(),
         }
     }
 
-    pub(crate) fn validate_audio_name(str: &str) -> bool {
+    pub fn validate_sfx_name(str: &str) -> bool {
         !str.is_empty()
     }
 
-    pub(crate) fn validate_audio_path(str: &str) -> bool {
+    pub fn validate_sfx_path(str: &str) -> bool {
         Path::new(str).is_file()
     }
 
-    pub(crate) fn validate_audio_volume(str: &str) -> bool {
+    pub fn validate_sfx_volume(str: &str) -> bool {
         str.parse::<f32>().is_ok_and(|x| x >= 0.0)
     }
 
-    pub(crate) fn validate_audio_skip_to(str: &str) -> bool {
+    pub fn validate_sfx_skip_to(str: &str) -> bool {
         str.parse::<f32>().is_ok_and(|x| x >= 0.0)
     }
 
-    pub(crate) fn validate_input_device(str: &str) -> bool {
+    pub fn validate_input_device(str: &str) -> bool {
         !str.is_empty() // TODO: replace with better check that scans actual audio devices
     }
 
-    pub(crate) fn validate_output_device(str: &str) -> bool {
+    pub fn validate_output_device(str: &str) -> bool {
         !str.is_empty() // TODO: replace with better check that scans actual audio devices
     }
 
@@ -187,6 +164,13 @@ impl App {
         // Windows is the reason why we can't have nice things in life.
         #[cfg(windows)]
         unsafe {
+            use winapi::um::wincon::GetConsoleWindow;
+            use winapi::um::winuser::{
+                HWND_NOTOPMOST, HWND_TOPMOST, INPUT, INPUT_KEYBOARD, INPUT_u, KEYEVENTF_KEYUP,
+                SW_RESTORE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SendInput, SetForegroundWindow,
+                SetWindowPos, ShowWindow, VK_MENU,
+            };
+
             // Fuck you I'm not feeling like using some bullshit ass API to do this. (deprecated)
             let hwnd = GetConsoleWindow();
 

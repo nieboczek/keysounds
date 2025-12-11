@@ -1,54 +1,51 @@
 use crate::app::Action;
 use rdev::{Event, EventType, Key};
-use std::{
-    sync::{Arc, Mutex},
-    thread,
-};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 struct HotkeyHandler {
-    ctrl_held: bool,
-    alt_held: bool,
+    ctrl_pressed: bool,
+    alt_pressed: bool,
+    shift_pressed: bool,
     channel: Arc<Mutex<Action>>,
 }
-
-static HANDLER: Mutex<Option<HotkeyHandler>> = Mutex::new(None);
 
 impl HotkeyHandler {
     #[inline]
     const fn new(channel: Arc<Mutex<Action>>) -> HotkeyHandler {
         HotkeyHandler {
-            ctrl_held: false,
-            alt_held: false,
+            ctrl_pressed: false,
+            alt_pressed: false,
+            shift_pressed: false,
             channel,
         }
     }
 
     #[inline]
-    fn callback(event: Event) {
+    fn emit_event(&mut self, event: Event) {
         let pressed = matches!(event.event_type, EventType::KeyPress(_));
 
         if let EventType::KeyPress(key) | EventType::KeyRelease(key) = event.event_type {
-            if let Some(handler) = HANDLER.lock().unwrap().as_mut() {
-                match key {
-                    Key::Alt => handler.alt_held = pressed,
-                    Key::ControlLeft => handler.ctrl_held = pressed,
-                    _ if pressed => handler.pressed(key),
-                    _ => {}
-                }
+            match key {
+                Key::Alt => self.alt_pressed = pressed,
+                Key::ControlLeft | Key::ControlRight => self.ctrl_pressed = pressed,
+                Key::ShiftLeft | Key::ShiftRight => self.shift_pressed = pressed,
+                _ if pressed => self.pressed(key),
+                _ => {}
             }
         }
     }
 
     #[inline]
     fn pressed(&self, key: Key) {
-        if !self.ctrl_held || !self.alt_held {
+        if !self.ctrl_pressed || !self.alt_pressed {
             return;
         }
 
         let action = match key {
             Key::KeyT => Action::SearchAndPlay,
             Key::KeyY => Action::SkipToPart,
-            Key::KeyS => Action::StopAudio,
+            Key::KeyS => Action::StopSfx,
             Key::KeyG => Action::ToggleShitMic,
             _ => return,
         };
@@ -60,14 +57,16 @@ impl HotkeyHandler {
 
 #[inline]
 pub fn start() -> Arc<Mutex<Action>> {
-    let channel = Arc::new(Mutex::new(Action::None));
-    *HANDLER.lock().unwrap() = Some(HotkeyHandler::new(Arc::clone(&channel)));
+    let action_channel = Arc::new(Mutex::new(Action::None));
+    let channel_clone = Arc::clone(&action_channel);
 
-    thread::spawn(|| {
-        if let Err(err) = rdev::listen(HotkeyHandler::callback) {
+    thread::spawn(move || {
+        let mut hotkey_handler = HotkeyHandler::new(channel_clone);
+
+        if let Err(err) = rdev::listen(move |event| hotkey_handler.emit_event(event)) {
             eprintln!("Global hotkey error: {err:?}");
         }
     });
 
-    channel
+    action_channel
 }

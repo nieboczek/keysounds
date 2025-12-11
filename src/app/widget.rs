@@ -1,12 +1,11 @@
 use crate::app::{App, Mode};
-use ratatui::{
-    buffer::Buffer,
-    layout::{Constraint, Layout, Rect},
-    style::Stylize,
-    text::{Line, Span, Text},
-    widgets::{List, Paragraph, StatefulWidget, Widget},
-};
-use std::{sync::atomic::Ordering, time::Duration};
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Stylize;
+use ratatui::text::{Line, Span, Text};
+use ratatui::widgets::{List, Paragraph, StatefulWidget, Widget};
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 macro_rules! hotkey {
     ($key:expr, $desc:expr) => {
@@ -68,7 +67,7 @@ impl Widget for &mut App {
     #[inline]
     fn render(self, area: Rect, buf: &mut Buffer) {
         match self.mode {
-            Mode::Normal | Mode::SearchAudio => {
+            Mode::Normal | Mode::SearchSfx => {
                 let [hotkey_area, player_area, selectables_area] = Layout::vertical([
                     Constraint::Length(5), // hotkeys; 4 lines + 1 empty
                     Constraint::Length(3), // player; 2 lines + 1 empty
@@ -77,9 +76,9 @@ impl Widget for &mut App {
                 .areas(area);
 
                 Paragraph::new(Text::from_iter([
-                    hotkey!("T", "Search and play audio."),
-                    hotkey!("Y", "Skip audio to target time."),
-                    hotkey!("S", "Stop audio."),
+                    hotkey!("T", "Search and play sfx."),
+                    hotkey!("Y", "Skip sfx to target time."),
+                    hotkey!("S", "Stop sfx."),
                     hotkey!("G", "Toggle shit mic mode."),
                 ]))
                 .render(hotkey_area, buf);
@@ -94,24 +93,25 @@ impl Widget for &mut App {
             Mode::EditConfig | Mode::EditInputDevice | Mode::EditOutputDevice => {
                 self.render_config_editor(area, buf);
             }
-            Mode::EditAudios => {
-                self.render_audios(area, buf);
+            Mode::EditSfxs => {
+                self.render_sfxs(area, buf);
             }
-            Mode::EditAudioName
-            | Mode::EditAudioPath
-            | Mode::EditAudioVolume
-            | Mode::EditAudioSkipTo
-            | Mode::SelectedAudioName
-            | Mode::SelectedAudioPath
-            | Mode::SelectedAudioVolume
-            | Mode::SelectedAudioSkipTo => {
-                self.render_audio(area, buf);
+            Mode::EditSfxName
+            | Mode::EditSfxPath
+            | Mode::EditSfxVolume
+            | Mode::EditSfxSkipTo
+            | Mode::SelectedSfxName
+            | Mode::SelectedSfxPath
+            | Mode::SelectedSfxVolume
+            | Mode::SelectedSfxSkipTo => {
+                self.render_sfx(area, buf);
             }
             Mode::Null => {
                 Paragraph::new(Text::from_iter([
-                    "you have fucked something up.",
-                    "consider reporting this as an issue",
-                    "or fix it yourself",
+                    "You have f'd something up.",
+                    "Consider reporting this as an issue",
+                    "(if this is an build from master),",
+                    "or fix it yourself.",
                     "(Tried to render Mode::Null)",
                 ]))
                 .render(area, buf);
@@ -122,11 +122,11 @@ impl Widget for &mut App {
 
 impl App {
     #[inline]
-    fn render_audio(&mut self, area: Rect, buf: &mut Buffer) {
-        // Offset accounted for "Create new audio" item
-        let audio = &self.config.audios[self.state.selected().unwrap() - 1];
+    fn render_sfx(&mut self, area: Rect, buf: &mut Buffer) {
+        // Offset accounted for "Create new sfx" item
+        let sfx = &self.config.sfx[self.list_state.selected().unwrap() - 1];
 
-        macro_rules! audio_prop {
+        macro_rules! sfx_prop {
             ($app:expr, $value:expr, $name:expr, $selected_mode:ident, $edit_mode:ident, $validate_fn:expr) => {
                 if $app.mode == Mode::$edit_mode {
                     let span = Span::raw(&$app.input);
@@ -145,57 +145,52 @@ impl App {
             };
         }
 
-        let name = audio_prop!(
+        let name = sfx_prop!(
             self,
-            audio.name,
+            sfx.name,
             "Name",
-            SelectedAudioName,
-            EditAudioName,
-            Self::validate_audio_name
+            SelectedSfxName,
+            EditSfxName,
+            Self::validate_sfx_name
         );
-        let path = audio_prop!(
+        let path = sfx_prop!(
             self,
-            audio.path,
+            sfx.path,
             "Path",
-            SelectedAudioPath,
-            EditAudioPath,
-            Self::validate_audio_path
+            SelectedSfxPath,
+            EditSfxPath,
+            Self::validate_sfx_path
         );
-        let volume = audio_prop!(
+        let volume = sfx_prop!(
             self,
-            audio.volume,
+            sfx.volume,
             "Volume",
-            SelectedAudioVolume,
-            EditAudioVolume,
-            Self::validate_audio_volume
+            SelectedSfxVolume,
+            EditSfxVolume,
+            Self::validate_sfx_volume
         );
-        let skip_to = audio_prop!(
+        let skip_to = sfx_prop!(
             self,
-            audio.skip_to,
+            sfx.skip_to,
             "Skip to",
-            SelectedAudioSkipTo,
-            EditAudioSkipTo,
-            Self::validate_audio_skip_to
+            SelectedSfxSkipTo,
+            EditSfxSkipTo,
+            Self::validate_sfx_skip_to
         );
 
         Paragraph::new(Text::from_iter([name, path, volume, skip_to])).render(area, buf);
     }
 
     #[inline]
-    fn render_audios(&mut self, area: Rect, buf: &mut Buffer) {
-        let mut items = vec![text!("Create new audio")];
-        items.extend(
-            self.config
-                .audios
-                .iter()
-                .map(|audio| text!(audio.name.as_str())),
-        );
+    fn render_sfxs(&mut self, area: Rect, buf: &mut Buffer) {
+        let mut items = vec![text!("Create new sfx")];
+        items.extend(self.config.sfx.iter().map(|sfx| text!(sfx.name.as_str())));
 
         StatefulWidget::render(
             List::new(items).highlight_symbol("* "),
             area,
             buf,
-            &mut self.state,
+            &mut self.list_state,
         );
     }
 
@@ -234,17 +229,17 @@ impl App {
                 Self::validate_output_device
             ),
             sep!(),
-            text!("Random audio triggering"),
+            text!("Random sfx triggering"),
             subtext!(format!(
-                "audio list: [ {} elements ]",
-                self.config.rat_audio_list.len()
+                "sfx list: [ {} elements ]",
+                self.config.rat_sfx_list.len()
             )),
             subtext!(format!(
                 "range: {} - {} s",
                 self.config.rat_range.0, self.config.rat_range.1
             )),
             sep!(),
-            text!(format!("Audios: [ {} elements ]", self.config.audios.len())),
+            text!(format!("Sfxs: [ {} elements ]", self.config.sfx.len())),
             text!("Save and go back"),
         ];
 
@@ -252,35 +247,39 @@ impl App {
             List::new(items).highlight_symbol("* "),
             area,
             buf,
-            &mut self.state,
+            &mut self.list_state,
         );
     }
 
     #[inline]
     fn render_player(&self, area: Rect, buf: &mut Buffer) {
-        //  37s  Audio Name
+        //  37s  Sfx name
         //  >>-- RANDOM TRIGGER
 
-        let time = format_time_left(
-            self.audio_meta
-                .duration
-                .saturating_sub(self.sinks.0.get_pos()),
-        );
+        let text = if let Some(data) = &self.sfx_data {
+            let time = format_time_left(
+                data.duration
+                    .saturating_sub(self.decoder.lock().unwrap().as_ref().unwrap().get_pos()),
+            );
+            let name = &data.sfx.name;
+            let animation = "----";
 
-        let name = self.audio.as_ref().map_or("", |audio| &audio.name);
-        let animation = "----";
+            #[cfg(not(feature = "render_call_counter"))]
+            let note = if data.randomly_triggered {
+                "RANDOM TRIGGER"
+            } else {
+                ""
+            };
 
-        #[cfg(not(feature = "render_call_counter"))]
-        let note = if self.audio_meta.randomly_triggered {
-            "RANDOM TRIGGER"
+            #[cfg(feature = "render_call_counter")]
+            let note = self.render_call_counter.to_string();
+
+            format!("  {time} {name}\n  {animation} {note}")
         } else {
-            ""
+            String::from("  0s\n  ----")
         };
 
-        #[cfg(feature = "render_call_counter")]
-        let note = self.render_call_counter.to_string();
-
-        Paragraph::new(format!("  {time} {name}\n  {animation} {note}")).render(area, buf);
+        Paragraph::new(text).render(area, buf);
     }
 
     #[inline]
@@ -290,14 +289,13 @@ impl App {
 
         let matches = self
             .config
-            .audios
+            .sfx
             .iter()
-            .filter_map(|audio| {
-                audio
-                    .name
+            .filter_map(|sfx| {
+                sfx.name
                     .to_ascii_lowercase()
                     .contains(&self.input.to_ascii_lowercase())
-                    .then_some(&audio.name)
+                    .then_some(&sfx.name)
             })
             .map(String::as_str)
             .collect::<Vec<_>>()
@@ -314,10 +312,10 @@ impl App {
     fn render_selectables(&mut self, area: Rect, buf: &mut Buffer) {
         let items = [
             bool!(self.shit_mic.load(Ordering::Relaxed), "Shit mic mode"),
-            bool!(self.random_audio_triggering, "Random audio triggering"),
+            bool!(self.random_sfx_triggering, "Random sfx triggering"),
             subtext!(format!(
-                "audio list: [ {} elements ]",
-                self.config.rat_audio_list.len()
+                "sfx list: [ {} elements ]",
+                self.config.rat_sfx_list.len()
             )),
             subtext!(format!(
                 "range: {} - {} s",
@@ -333,7 +331,7 @@ impl App {
             List::new(items).highlight_symbol("* "),
             area,
             buf,
-            &mut self.state,
+            &mut self.list_state,
         );
     }
 }

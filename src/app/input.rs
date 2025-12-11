@@ -1,4 +1,4 @@
-use crate::app::{App, Audio, Mode, StateStatus};
+use crate::app::{App, Mode, Sfx, StateStatus};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use std::sync::atomic::Ordering;
 
@@ -32,33 +32,33 @@ impl App {
     ) -> StateStatus {
         match k {
             KeyCode::Down => {
-                self.state.select_next();
+                self.list_state.select_next();
 
-                if self.is_separator(self.state.selected().unwrap()) {
-                    self.state.select_next();
+                if self.is_separator(self.list_state.selected().unwrap()) {
+                    self.list_state.select_next();
                 }
             }
             KeyCode::Up => {
-                self.state.select_previous();
+                self.list_state.select_previous();
 
-                if self.is_separator(self.state.selected().unwrap()) {
-                    self.state.select_previous();
+                if self.is_separator(self.list_state.selected().unwrap()) {
+                    self.list_state.select_previous();
                 }
             }
             KeyCode::Esc => handle_esc(self),
-            KeyCode::Enter => return handle_submit(self, self.state.selected().unwrap()),
+            KeyCode::Enter => return handle_submit(self, self.list_state.selected().unwrap()),
             k => return handle_special(self, k),
         }
         StateStatus::Updated
     }
 
-    fn m_audio_prop_selected_input(
+    fn m_sfx_prop_selected_input(
         &mut self,
         k: KeyCode,
         previous_mode: Mode,
         next_mode: Mode,
         submit_mode: Mode,
-        input_getter: impl Fn(&Audio) -> String,
+        input_getter: impl Fn(&Sfx) -> String,
     ) -> StateStatus {
         match k {
             KeyCode::Up => {
@@ -74,12 +74,13 @@ impl App {
                 }
             }
             KeyCode::Enter => {
-                self.input = input_getter(&self.config.audios[self.state.selected().unwrap() - 1]);
+                self.input =
+                    input_getter(&self.config.sfx[self.list_state.selected().unwrap() - 1]);
                 self.mode = submit_mode;
                 return StateStatus::Updated;
             }
             KeyCode::Esc => {
-                self.mode = Mode::EditAudios;
+                self.mode = Mode::EditSfxs;
                 return StateStatus::Updated;
             }
             _ => {}
@@ -87,25 +88,20 @@ impl App {
         StateStatus::Unaffected
     }
 
-    fn m_audio_prop_edit_input(
+    fn m_sfx_prop_edit_input(
         &mut self,
         k: KeyCode,
-        validate: impl Fn(&str) -> bool,
-        modify: impl Fn(&mut Audio, &mut String) -> Mode,
+        modify: impl Fn(&mut Sfx, &mut String) -> Mode,
     ) -> StateStatus {
         self.m_add_to_input(
             k,
             |_, _| StateStatus::Unaffected,
             |a| {
-                if validate(&a.input) {
-                    a.mode = modify(
-                        &mut a.config.audios[a.state.selected().unwrap() - 1],
-                        &mut a.input,
-                    );
-                    StateStatus::Updated
-                } else {
-                    StateStatus::Unaffected
-                }
+                a.mode = modify(
+                    &mut a.config.sfx[a.list_state.selected().unwrap() - 1],
+                    &mut a.input,
+                );
+                StateStatus::Updated
             },
         )
     }
@@ -134,13 +130,13 @@ impl App {
 
                     #[cfg(feature = "vhs_keybinds")]
                     KeyCode::Char('t') => {
-                        a.mode = Mode::SearchAudio;
+                        a.mode = Mode::SearchSfx;
                         StateStatus::IgnoreNextKeyPress
                     }
                     #[cfg(feature = "vhs_keybinds")]
                     KeyCode::Char('s') => {
-                        a.audio_meta = AudioMeta::reset();
-                        a.audio = None;
+                        a.sfx_meta = SfxMeta::reset();
+                        a.sfx = None;
 
                         a.sinks.0.stop();
                         a.sinks.1.stop();
@@ -154,12 +150,12 @@ impl App {
                         0 => {
                             a.shit_mic.fetch_not(Ordering::Relaxed);
                         }
-                        1 => a.random_audio_triggering = !a.random_audio_triggering,
-                        2 => return StateStatus::Unaffected, // TODO (audio list)
+                        1 => a.random_sfx_triggering = !a.random_sfx_triggering,
+                        2 => return StateStatus::Unaffected, // TODO (sfx list)
                         3 => return StateStatus::Unaffected, // TODO (range)
                         4 => return StateStatus::Unaffected, // separator
                         5 => {
-                            a.state.select_first();
+                            a.list_state.select_first();
                             a.mode = Mode::EditConfig;
                         }
                         6 => a.load_config(),          // Reload config
@@ -170,13 +166,13 @@ impl App {
                 },
                 |_| {},
             ),
-            Mode::SearchAudio => match k {
-                KeyCode::Char(ch) if self.mode == Mode::SearchAudio => {
+            Mode::SearchSfx => match k {
+                KeyCode::Char(ch) if self.mode == Mode::SearchSfx => {
                     self.input.push(ch);
                     let input = &self.input.to_ascii_lowercase();
 
-                    for audio in &self.config.audios {
-                        if audio.name.to_ascii_lowercase().contains(input) {
+                    for sfx in &self.config.sfx {
+                        if sfx.name.to_ascii_lowercase().contains(input) {
                             *state_status = StateStatus::Updated;
                             return;
                         }
@@ -203,15 +199,14 @@ impl App {
                     }
                 }
                 KeyCode::Enter => {
-                    let option = self.config.audios.iter().find(|audio| {
-                        audio
-                            .name
+                    let option = self.config.sfx.iter().find(|sfx| {
+                        sfx.name
                             .to_ascii_lowercase()
                             .contains(&self.input.to_ascii_lowercase())
                     });
 
-                    if let Some(audio) = option.cloned() {
-                        self.play_audio(audio, false);
+                    if let Some(sfx) = option {
+                        self.play_sfx(sfx.clone(), false);
                         self.input = String::new();
                         self.mode = Mode::Normal;
                     }
@@ -239,17 +234,17 @@ impl App {
                             a.mode = Mode::EditOutputDevice;
                         }
                         2 => return StateStatus::Unaffected, // separator
-                        3 => return StateStatus::Unaffected, // Random audio triggering
-                        4 => return StateStatus::Unaffected, // TODO (audio list)
+                        3 => return StateStatus::Unaffected, // Random sfx triggering
+                        4 => return StateStatus::Unaffected, // TODO (sfx list)
                         5 => return StateStatus::Unaffected, // TODO (range)
                         6 => return StateStatus::Unaffected, // separator
                         7 => {
-                            a.state.select(Some(0));
-                            a.mode = Mode::EditAudios;
+                            a.list_state.select(Some(0));
+                            a.mode = Mode::EditSfxs;
                         }
                         8 => {
                             a.save_config();
-                            a.state.select(Some(5));
+                            a.list_state.select(Some(5));
                             a.mode = Mode::Normal;
                         }
                         _ => unreachable!(),
@@ -258,7 +253,7 @@ impl App {
                 },
                 |a| {
                     a.save_config();
-                    a.state.select(Some(5));
+                    a.list_state.select(Some(5));
                     a.mode = Mode::Normal;
                 },
             ),
@@ -280,85 +275,81 @@ impl App {
                     StateStatus::Updated
                 },
             ),
-            Mode::EditAudios => self.m_list_input(
+            Mode::EditSfxs => self.m_list_input(
                 k,
                 |_, _| StateStatus::Unaffected,
                 |a, idx| {
                     match idx {
                         0 => {
-                            a.config.audios.insert(
+                            a.config.sfx.insert(
                                 0,
-                                Audio {
+                                Sfx {
                                     name: String::new(),
                                     path: String::new(),
                                     volume: 1.0,
                                     skip_to: 0.0,
                                 },
                             );
-                            a.state.select(Some(1));
-                            a.mode = Mode::SelectedAudioName;
+                            a.list_state.select(Some(1));
+                            a.mode = Mode::SelectedSfxName;
                         }
-                        1.. => a.mode = Mode::SelectedAudioName,
+                        1.. => a.mode = Mode::SelectedSfxName,
                     }
                     StateStatus::Updated
                 },
                 |a| {
-                    a.state.select(Some(7));
+                    a.list_state.select(Some(7));
                     a.mode = Mode::EditConfig;
                 },
             ),
-            Mode::SelectedAudioName => self.m_audio_prop_selected_input(
+            Mode::SelectedSfxName => self.m_sfx_prop_selected_input(
                 k,
                 Mode::Null,
-                Mode::SelectedAudioPath,
-                Mode::EditAudioName,
+                Mode::SelectedSfxPath,
+                Mode::EditSfxName,
                 |a| a.name.to_string(),
             ),
-            Mode::EditAudioName => {
-                self.m_audio_prop_edit_input(k, Self::validate_audio_name, |a, s| {
-                    a.name = s.split_off(0);
-                    Mode::SelectedAudioName
-                })
-            }
-            Mode::SelectedAudioPath => self.m_audio_prop_selected_input(
+            Mode::EditSfxName => self.m_sfx_prop_edit_input(k, |a, s| {
+                a.name = s.split_off(0);
+                Mode::SelectedSfxName
+            }),
+            Mode::SelectedSfxPath => self.m_sfx_prop_selected_input(
                 k,
-                Mode::SelectedAudioName,
-                Mode::SelectedAudioVolume,
-                Mode::EditAudioPath,
+                Mode::SelectedSfxName,
+                Mode::SelectedSfxVolume,
+                Mode::EditSfxPath,
                 |a| a.path.to_string(),
             ),
-            Mode::EditAudioPath => {
-                self.m_audio_prop_edit_input(k, Self::validate_audio_path, |a, s| {
-                    a.path = s.split_off(0);
-                    Mode::SelectedAudioPath
-                })
-            }
-            Mode::SelectedAudioVolume => self.m_audio_prop_selected_input(
+            Mode::EditSfxPath => self.m_sfx_prop_edit_input(k, |a, s| {
+                a.path = s.split_off(0);
+                Mode::SelectedSfxPath
+            }),
+            Mode::SelectedSfxVolume => self.m_sfx_prop_selected_input(
                 k,
-                Mode::SelectedAudioPath,
-                Mode::SelectedAudioSkipTo,
-                Mode::EditAudioVolume,
+                Mode::SelectedSfxPath,
+                Mode::SelectedSfxSkipTo,
+                Mode::EditSfxVolume,
                 |a| a.volume.to_string(),
             ),
-            Mode::EditAudioVolume => {
-                self.m_audio_prop_edit_input(k, Self::validate_audio_volume, |a, s| {
-                    a.volume = s.parse().unwrap();
-                    Mode::SelectedAudioVolume
-                })
-            }
-            Mode::SelectedAudioSkipTo => self.m_audio_prop_selected_input(
+            Mode::EditSfxVolume => self.m_sfx_prop_edit_input(k, |a, s| {
+                if let Ok(volume) = s.parse::<f32>() {
+                    a.volume = volume;
+                }
+                Mode::SelectedSfxVolume
+            }),
+            Mode::SelectedSfxSkipTo => self.m_sfx_prop_selected_input(
                 k,
-                Mode::SelectedAudioVolume,
+                Mode::SelectedSfxVolume,
                 Mode::Null,
-                Mode::EditAudioSkipTo,
+                Mode::EditSfxSkipTo,
                 |a| a.skip_to.to_string(),
             ),
-            Mode::EditAudioSkipTo => {
-                self.m_audio_prop_edit_input(k, Self::validate_audio_skip_to, |a, s| {
-                    a.skip_to = s.parse().unwrap();
-                    Mode::SelectedAudioSkipTo
-                })
-            }
+            Mode::EditSfxSkipTo => self.m_sfx_prop_edit_input(k, |a, s| {
+                if let Ok(skip_to) = s.parse::<f32>() {
+                    a.skip_to = skip_to;
+                }
+                Mode::SelectedSfxSkipTo
+            }),
             Mode::Null => {
                 if k == KeyCode::Char('q') {
                     StateStatus::Quit
