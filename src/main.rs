@@ -1,4 +1,3 @@
-use app::App;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::crossterm::execute;
@@ -8,8 +7,8 @@ use ratatui::crossterm::terminal::{
 use std::io;
 use std::io::Stdout;
 
-mod app;
-mod hotkey_handler;
+pub mod app;
+pub mod hotkey_handler;
 
 fn init_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
     enable_raw_mode()?;
@@ -21,7 +20,7 @@ fn init_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
 fn main() -> io::Result<()> {
     let action_channel = hotkey_handler::start();
     let mut terminal = init_terminal()?;
-    let mut app = App::new(action_channel);
+    let mut app = app::App::new(action_channel);
 
     app.run(&mut terminal)?;
 

@@ -4,18 +4,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{List, Paragraph, StatefulWidget, Widget};
-use std::sync::atomic::Ordering;
 use std::time::Duration;
-
-macro_rules! hotkey {
-    ($key:expr, $desc:expr) => {
-        Line::from_iter([
-            Span::raw("-> ").dark_gray(),
-            Span::raw(concat!("Ctrl+Alt+", $key)).white(),
-            Span::raw(concat!(": ", $desc)),
-        ])
-    };
-}
 
 macro_rules! subtext {
     ($string:expr) => {
@@ -68,20 +57,11 @@ impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         match self.mode {
             Mode::Normal | Mode::SearchSfx => {
-                let [hotkey_area, player_area, selectables_area] = Layout::vertical([
-                    Constraint::Length(5), // hotkeys; 4 lines + 1 empty
-                    Constraint::Length(3), // player; 2 lines + 1 empty
+                let [player_area, selectables_area] = Layout::vertical([
+                    Constraint::Length(4), // player; 2 lines + 2 empty
                     Constraint::Fill(1),   // selectables;
                 ])
                 .areas(area);
-
-                Paragraph::new(Text::from_iter([
-                    hotkey!("T", "Search and play sfx."),
-                    hotkey!("Y", "Skip sfx to target time."),
-                    hotkey!("S", "Stop sfx."),
-                    hotkey!("G", "Toggle shit mic mode."),
-                ]))
-                .render(hotkey_area, buf);
 
                 self.render_player(player_area, buf);
                 if self.mode == Mode::Normal {
@@ -274,9 +254,15 @@ impl App {
             #[cfg(feature = "render_call_counter")]
             let note = self.render_call_counter.to_string();
 
-            format!("  {time} {name}\n  {animation} {note}")
+            format!("\n  {time} {name}\n  {animation} {note}")
         } else {
-            String::from("  0s\n  ----")
+            #[cfg(not(feature = "render_call_counter"))]
+            let note = "";
+            
+            #[cfg(feature = "render_call_counter")]
+            let note = self.render_call_counter.to_string();
+
+            format!("\n  0s\n  ---- {note}")
         };
 
         Paragraph::new(text).render(area, buf);
@@ -311,7 +297,6 @@ impl App {
     #[inline]
     fn render_selectables(&mut self, area: Rect, buf: &mut Buffer) {
         let items = [
-            bool!(self.shit_mic.load(Ordering::Relaxed), "Shit mic mode"),
             bool!(self.random_sfx_triggering, "Random sfx triggering"),
             subtext!(format!(
                 "sfx list: [ {} elements ]",

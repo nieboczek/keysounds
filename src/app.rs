@@ -1,23 +1,22 @@
 use crate::app::audio::{AudioDecoder, FilterChain};
+use crate::app::config::{Config, Keybind};
 use cpal::traits::{DeviceTrait, HostTrait};
 use rand::rngs::ThreadRng;
 use ratatui::widgets::ListState;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-mod audio;
-mod config;
-mod imp;
-mod input;
-mod widget;
+pub mod audio;
+pub mod config;
+pub mod imp;
+pub mod input;
+pub mod widget;
 
 pub struct App {
     _keep_alive: audio::KeepAlive,
     action_channel: Arc<Mutex<Action>>,
     list_state: ListState,
-    shit_mic: Arc<AtomicBool>,
     random_sfx_triggering: bool,
     rat_deadline: Instant,
     mode: Mode,
@@ -32,7 +31,7 @@ pub struct App {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-struct Sfx {
+pub struct Sfx {
     name: String,
     path: String,
     #[serde(default = "default_volume", skip_serializing_if = "is_default_volume")]
@@ -62,29 +61,20 @@ struct SfxData {
     sfx: Sfx,
 }
 
-#[derive(Serialize, Deserialize)]
-enum AudioFilter {
-    #[serde(rename = "boost_bass")]
-    BoostBass { gain: f32, cutoff: f32 },
-    #[serde(rename = "shittify")]
-    Shittify,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Config {
-    input_device: String,
-    output_device: String,
-    rat_range: (f32, f32),
-    rat_sfx_list: Vec<String>,
-    mic_filters: Vec<AudioFilter>,
-    sfx: Vec<Sfx>,
-}
-
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Action {
+    #[serde(rename = "search_and_play")]
     SearchAndPlay,
+    #[serde(rename = "skip_to_part")]
     SkipToPart,
+    #[serde(rename = "stop_sfx")]
     StopSfx,
-    ToggleShitMic,
+    #[serde(rename = "filter_preset")]
+    FilterPreset(Vec<config::AudioFilter>),
+
+    #[serde(rename = "set_keybinds")]
+    SetKeybinds(Vec<Keybind>),
+    #[serde(rename = "none")]
     None,
 }
 
@@ -148,6 +138,9 @@ impl App {
     #[inline]
     pub fn new(action_channel: Arc<Mutex<Action>>) -> App {
         let config = Self::load_config_result();
+        *action_channel.lock().unwrap() = Action::SetKeybinds(config.keybinds.clone());
+
+        let decoder = Arc::new(Mutex::new(None));
         let host = cpal::default_host();
 
         let mic_device = host
@@ -166,8 +159,6 @@ impl App {
             .find(|device| device.name().unwrap_or_default() == config.output_device)
             .expect("Output device not found");
 
-        let decoder = Arc::new(Mutex::new(None));
-
         let (filter_chain, keep_alive) = Self::create_streams(
             &mic_device,
             &default_out_device,
@@ -175,18 +166,10 @@ impl App {
             Arc::clone(&decoder),
         );
 
-        filter_chain
-            .lock()
-            .unwrap()
-            .sync_with_config(&config.mic_filters);
-
-        let shit_mic = Arc::new(AtomicBool::new(false));
-
         App {
             _keep_alive: keep_alive,
             action_channel,
             list_state: ListState::default().with_selected(Some(0)),
-            shit_mic,
             random_sfx_triggering: false,
             rat_deadline: Instant::now(),
             mode: Mode::Normal,

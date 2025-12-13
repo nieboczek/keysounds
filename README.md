@@ -6,14 +6,12 @@ It allows mixing in audio files using global hotkeys and more.
 
 ## Features
 - **Microphone forwarding** - Forwards microphone input to virtual output.
-- **Audio playback using global hotkeys** - Play audio with keybinds:
+- **Audio playback using global hotkeys** - Play audio with **configurable** keybinds (here are the defaults):
   - `Ctrl+Alt+T` - Play audio
   - `Ctrl+Alt+Y` - Skip current audio to a predefined position (set in config)
   - `Ctrl+Alt+S` - Stop playing current audio
-- **Shit mic mode** - Turns your microphone to a one inside a running microwave<sup title="this is a joke btw">[_[citation needed](https://en.wikipedia.org/wiki/Joke)_]</sup> by pressing `Ctrl+Alt+G`.
+- **Microphone filtering** - Through filtering you can turn your microphone to one inside a running microwave<sup title="this is a joke btw">[_[citation needed](https://en.wikipedia.org/wiki/Joke)_]</sup>, or you can change your voice to be reverbed, or even bass boosted.
 - **Random audio triggering** - Can be enabled to play a random audio from a configurable list every X to Y seconds.
-
-_Hotkeys are not yet configurable._
 
 ## Installation
 Get a prebuilt for your system (Windows only for now) executable on the [Releases](https://github.com/nieboczek/keysounds/releases) tab or compile it yourself by following the steps below.

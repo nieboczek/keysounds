@@ -1,6 +1,7 @@
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{self, BufReader, Read, Seek, SeekFrom};
+use std::io;
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 use std::time::Duration;
 use symphonia::core::audio::{AudioBufferRef, SampleBuffer, SignalSpec};
@@ -13,6 +14,7 @@ use symphonia::core::units;
 use symphonia::default::{get_codecs, get_probe};
 
 // TODO: replace unwraps in this file with actual error handling
+// TODO(13-12-2025): this outputs static noise :skull:
 
 pub struct AudioDecoder {
     decoder: Box<dyn Decoder>,
@@ -88,10 +90,6 @@ impl AudioDecoder {
 
     pub fn get_pos(&self) -> Duration {
         Duration::default()
-    }
-
-    pub fn stop(&self) {
-        // TODO: actually stop the audio
     }
 
     pub(super) fn total_duration(&self) -> Option<Duration> {

@@ -7,7 +7,6 @@ use ratatui::crossterm::event::Event;
 use std::io;
 use std::io::Stdout;
 use std::path::Path;
-use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 impl App {
@@ -60,8 +59,7 @@ impl App {
     #[inline]
     fn check_playing_sfx(&mut self) -> StateStatus {
         if self.sfx_data.is_some() {
-            if false {
-                // TODO: if audio finished
+            if self.decoder.lock().unwrap().is_none() {
                 self.sfx_data = None;
                 return StateStatus::Updated;
             }
@@ -94,7 +92,9 @@ impl App {
     fn handle_actions(&mut self) -> StateStatus {
         let mut guard = self.action_channel.lock().unwrap();
 
-        match *guard {
+        let old = std::mem::replace(&mut *guard, Action::None);
+        match old {
+            Action::None => return StateStatus::Unaffected,
             Action::SearchAndPlay => {
                 Self::focus_console();
                 self.input.clear();
@@ -110,29 +110,18 @@ impl App {
                 }
             }
             Action::StopSfx => {
-                if let Some(decoder) = self.decoder.lock().unwrap().as_mut() {
-                    decoder.stop();
-                    self.sfx_data = None;
-                }
+                *self.decoder.lock().unwrap() = None;
+                self.sfx_data = None;
             }
-            Action::ToggleShitMic => {
-                self.shit_mic.fetch_not(Ordering::Relaxed);
+            Action::FilterPreset(filters) => {
+                self.filter_chain.lock().unwrap().sync_with_vector(filters);
             }
-            Action::None => return StateStatus::Unaffected,
+            Action::SetKeybinds(_) => {
+                *guard = old;
+                return StateStatus::Unaffected;
+            }
         }
-
-        *guard = Action::None;
         StateStatus::Updated
-    }
-
-    #[inline]
-    pub fn is_separator(&self, idx: usize) -> bool {
-        match self.mode {
-            Mode::Normal => idx == 4,
-            Mode::EditConfig => idx == 2 || idx == 6,
-            Mode::EditSfxs => false,
-            _ => unreachable!(),
-        }
     }
 
     pub fn validate_sfx_name(str: &str) -> bool {

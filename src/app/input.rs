@@ -1,6 +1,5 @@
 use crate::app::{App, Mode, Sfx, StateStatus};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
-use std::sync::atomic::Ordering;
 
 impl App {
     fn m_add_to_input(
@@ -147,19 +146,16 @@ impl App {
                 },
                 |a, idx| {
                     match idx {
-                        0 => {
-                            a.shit_mic.fetch_not(Ordering::Relaxed);
-                        }
-                        1 => a.random_sfx_triggering = !a.random_sfx_triggering,
-                        2 => return StateStatus::Unaffected, // TODO (sfx list)
-                        3 => return StateStatus::Unaffected, // TODO (range)
-                        4 => return StateStatus::Unaffected, // separator
-                        5 => {
+                        0 => a.random_sfx_triggering = !a.random_sfx_triggering,
+                        1 => return StateStatus::Unaffected, // TODO (sfx list)
+                        2 => return StateStatus::Unaffected, // TODO (range)
+                        3 => return StateStatus::Unaffected, // separator
+                        4 => {
                             a.list_state.select_first();
                             a.mode = Mode::EditConfig;
                         }
-                        6 => a.load_config(),          // Reload config
-                        7 => return StateStatus::Quit, // Exit
+                        5 => a.load_config(),          // Reload config
+                        6 => return StateStatus::Quit, // Exit
                         _ => unreachable!(),
                     }
                     StateStatus::Updated
@@ -358,5 +354,15 @@ impl App {
                 }
             }
         };
+    }
+
+    #[inline]
+    fn is_separator(&self, idx: usize) -> bool {
+        match self.mode {
+            Mode::Normal => idx == 4,
+            Mode::EditConfig => idx == 1 || idx == 5,
+            Mode::EditSfxs => false,
+            _ => unreachable!(),
+        }
     }
 }

@@ -1,11 +1,11 @@
-use crate::app;
+use crate::app::config;
 
 pub struct FilterChain {
-    filters: Vec<Box<dyn AudioFilter + Send + Sync>>,
+    filters: Vec<Box<dyn AudioFilter>>,
     sample_rate: u32,
 }
 
-pub trait AudioFilter {
+pub trait AudioFilter: Send + Sync {
     fn filter(&mut self, sample: f32) -> f32;
 }
 
@@ -24,22 +24,25 @@ impl FilterChain {
         sample
     }
 
-    pub fn sync_with_config(&mut self, filters: &Vec<app::AudioFilter>) {
-        self.filters = filters
-            .iter()
-            .map(|filter| {
-                let transformed: Box<dyn AudioFilter + Send + Sync> = match filter {
-                    app::AudioFilter::BoostBass { gain, cutoff } => Box::new(BoostBass {
-                        prev_output: 0.0,
-                        sample_rate: self.sample_rate as f32,
-                        gain: *gain,
-                        cutoff: *cutoff,
-                    }),
-                    app::AudioFilter::Shittify => Box::new(Shittify),
-                };
-                transformed
-            })
-            .collect();
+    pub fn sync_with_vector(&mut self, filters: Vec<config::AudioFilter>) {
+        self.filters.clear();
+        self.filters.extend(
+            filters
+                .into_iter()
+                .map(|filter| Self::transform_filter(self.sample_rate, filter)),
+        );
+    }
+
+    fn transform_filter(sample_rate: u32, filter: config::AudioFilter) -> Box<dyn AudioFilter> {
+        match filter {
+            config::AudioFilter::BoostBass { gain, cutoff } => Box::new(BoostBass {
+                prev_output: 0.0,
+                sample_rate: sample_rate as f32,
+                gain,
+                cutoff,
+            }),
+            config::AudioFilter::Shittify => Box::new(Shittify),
+        }
     }
 }
 

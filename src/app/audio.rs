@@ -8,7 +8,7 @@ use std::thread;
 use std::time::Duration;
 
 pub use decoder::AudioDecoder;
-pub use filter::FilterChain;
+pub use filter::{AudioFilter, FilterChain};
 
 mod decoder;
 mod filter;
@@ -125,7 +125,6 @@ impl App {
                 }
 
                 if eof {
-                    // TODO: this should set self.sfx_data = None, but that is a minor bug
                     // delete decoder
                     *guard = None;
                 }
