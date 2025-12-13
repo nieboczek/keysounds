@@ -258,7 +258,7 @@ impl App {
         } else {
             #[cfg(not(feature = "render_call_counter"))]
             let note = "";
-            
+
             #[cfg(feature = "render_call_counter")]
             let note = self.render_call_counter.to_string();
 

@@ -71,10 +71,6 @@ impl App {
                         Keybind::default_keybind(Key::KeyT, Action::SearchAndPlay),
                         Keybind::default_keybind(Key::KeyY, Action::SkipToPart),
                         Keybind::default_keybind(Key::KeyS, Action::StopSfx),
-                        Keybind::default_keybind(
-                            Key::KeyG,
-                            Action::FilterPreset(vec![AudioFilter::Shittify]),
-                        ),
                     ],
                     sfx: Vec::new(),
                 };
