@@ -212,11 +212,11 @@ impl App {
             text!("Random sfx triggering"),
             subtext!(format!(
                 "sfx list: [ {} elements ]",
-                self.config.rat_sfx_list.len()
+                self.config.rst_sfx_list.len()
             )),
             subtext!(format!(
                 "range: {} - {} s",
-                self.config.rat_range.0, self.config.rat_range.1
+                self.config.rst_range.0, self.config.rst_range.1
             )),
             sep!(),
             text!(format!("Sfxs: [ {} elements ]", self.config.sfx.len())),
@@ -300,11 +300,11 @@ impl App {
             bool!(self.random_sfx_triggering, "Random sfx triggering"),
             subtext!(format!(
                 "sfx list: [ {} elements ]",
-                self.config.rat_sfx_list.len()
+                self.config.rst_sfx_list.len()
             )),
             subtext!(format!(
                 "range: {} - {} s",
-                self.config.rat_range.0, self.config.rat_range.1
+                self.config.rst_range.0, self.config.rst_range.1
             )),
             sep!(),
             text!("Edit config"),

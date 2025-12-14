@@ -44,8 +44,8 @@ impl Keybind {
 pub struct Config {
     pub input_device: String,
     pub output_device: String,
-    pub rat_range: (f32, f32),
-    pub rat_sfx_list: Vec<String>,
+    pub rst_range: (f32, f32),
+    pub rst_sfx_list: Vec<String>,
     pub keybinds: Vec<Keybind>,
     pub sfx: Vec<Sfx>,
 }
@@ -71,8 +71,8 @@ impl App {
                 let config = Config {
                     input_device: String::new(),
                     output_device: String::from("CABLE Input (VB-Audio Virtual Cable)"),
-                    rat_range: (600.0, 900.0),
-                    rat_sfx_list: Vec::new(),
+                    rst_range: (600.0, 900.0),
+                    rst_sfx_list: Vec::new(),
                     keybinds: vec![
                         Keybind::default_keybind(Key::KeyT, Action::SearchAndPlay),
                         Keybind::default_keybind(Key::KeyY, Action::SkipToPart),

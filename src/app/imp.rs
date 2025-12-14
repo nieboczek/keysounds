@@ -70,9 +70,9 @@ impl App {
 
     #[inline]
     fn trigger_sfx_randomly(&mut self) -> StateStatus {
-        if self.random_sfx_triggering && self.rat_deadline <= Instant::now() {
-            let idx: usize = self.rng.random_range(0..self.config.rat_sfx_list.len());
-            let name = &self.config.rat_sfx_list[idx];
+        if self.random_sfx_triggering && self.rst_deadline <= Instant::now() {
+            let idx: usize = self.rng.random_range(0..self.config.rst_sfx_list.len());
+            let name = &self.config.rst_sfx_list[idx];
             let sfx = self.config.sfx.iter().find(|sfx| &sfx.name == name);
 
             if let Some(sfx) = sfx {
@@ -80,9 +80,9 @@ impl App {
             }
             // TODO: warn here if no sfx is found
 
-            let min = self.config.rat_range.0;
-            let max = self.config.rat_range.1;
-            self.rat_deadline += Duration::from_secs_f32(self.rng.random_range(min..=max));
+            let min = self.config.rst_range.0;
+            let max = self.config.rst_range.1;
+            self.rst_deadline += Duration::from_secs_f32(self.rng.random_range(min..=max));
             return StateStatus::Updated;
         }
         StateStatus::Unaffected
