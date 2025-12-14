@@ -43,7 +43,9 @@ impl FilterChain {
             config::AudioFilter::BoostBass { gain, cutoff } => {
                 Box::new(BoostBass::new(sample_rate, cutoff, gain))
             }
-            config::AudioFilter::Shittify => Box::new(Shittify::new()),
+            config::AudioFilter::Shittify { strength, cutoff } => {
+                Box::new(Shittify::new(strength, cutoff))
+            }
             config::AudioFilter::Reverb {
                 room_size,
                 damping,

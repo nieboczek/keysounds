@@ -1,10 +1,13 @@
 use crate::app::audio::AudioFilter;
 
-pub(super) struct Shittify;
+pub(super) struct Shittify {
+    strength: i32,
+    cutoff: i32,
+}
 
 impl Shittify {
-    pub(super) fn new() -> Self {
-        Shittify
+    pub(super) fn new(strength: i32, cutoff: i32) -> Self {
+        Shittify { strength, cutoff }
     }
 }
 
@@ -14,7 +17,7 @@ impl AudioFilter for Shittify {
         let sample_i16 = (sample * i16::MAX as f32) as i16;
 
         // BOOST THE AUDIO 12 TIMES and then CLIP IT A LOT
-        let distorted = (sample_i16 as i32 * 12).clamp(-10000, 10000) as i16;
+        let distorted = (sample_i16 as i32 * self.strength).clamp(-self.cutoff, self.cutoff) as i16;
 
         // QUIETER AUDIO 2 TIMES and cast to f32
         (distorted / 2) as f32 / i16::MAX as f32

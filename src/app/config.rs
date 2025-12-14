@@ -10,7 +10,7 @@ pub enum AudioFilter {
     #[serde(rename = "boost_bass")]
     BoostBass { gain: f32, cutoff: f32 },
     #[serde(rename = "shittify")]
-    Shittify,
+    Shittify { strength: i32, cutoff: i32 },
     #[serde(rename = "reverb")]
     Reverb {
         room_size: f32,
