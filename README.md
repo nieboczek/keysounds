@@ -37,7 +37,7 @@ output_device = "CABLE Input (VB-Audio Virtual Cable)"
 # (currently 133.7s to 420s between audios)
 rst_range = [133.7, 420]
 # List of audios that can be selected by Random Sfx Triggering
-rst_audio_list = ["METAL PIPE", "Moyai 🗿"]
+rst_sfx_list = ["METAL PIPE", "Moyai 🗿"]
 
 # A keybind object
 [[keybinds]]
