@@ -11,6 +11,12 @@ pub enum AudioFilter {
     BoostBass { gain: f32, cutoff: f32 },
     #[serde(rename = "shittify")]
     Shittify,
+    #[serde(rename = "reverb")]
+    Reverb {
+        room_size: f32,
+        damping: f32,
+        wet: f32,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize)]
