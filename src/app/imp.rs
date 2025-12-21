@@ -18,10 +18,10 @@ impl App {
         loop {
             let mut state_status = self.handle_actions();
 
-            if event::poll(Duration::from_millis(5))? {
-                if let Event::Key(key) = event::read()? {
-                    self.handle_input(key, &mut state_status);
-                }
+            if event::poll(Duration::from_millis(5))?
+                && let Event::Key(key) = event::read()?
+            {
+                self.handle_input(key, &mut state_status);
             }
 
             state_status |= self.trigger_sfx_randomly();

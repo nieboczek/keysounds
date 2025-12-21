@@ -146,7 +146,11 @@ impl App {
         let mic_device = host
             .input_devices()
             .unwrap()
-            .find(|device| device.name().unwrap_or_default() == config.input_device)
+            .find(|device| {
+                device
+                    .description()
+                    .is_ok_and(|desc| desc.name() == config.input_device)
+            })
             .expect("Could not find input device");
 
         let default_out_device = host
@@ -156,7 +160,11 @@ impl App {
         let out_device = host
             .output_devices()
             .unwrap()
-            .find(|device| device.name().unwrap_or_default() == config.output_device)
+            .find(|device| {
+                device
+                    .description()
+                    .is_ok_and(|desc| desc.name() == config.input_device)
+            })
             .expect("Output device not found");
 
         let (filter_chain, keep_alive) = Self::create_streams(

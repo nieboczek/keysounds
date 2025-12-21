@@ -69,7 +69,7 @@ impl HotkeyHandler {
             shift: self.shift_pressed,
             ctrl: self.ctrl_pressed,
             alt: self.alt_pressed,
-            key: key,
+            key,
         };
 
         if let Some(action) = self.keybinds.get(&combination) {

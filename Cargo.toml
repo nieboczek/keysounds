@@ -8,7 +8,7 @@ ratatui = "0.29.0"
 rdev = { version = "0.5.3", features = ["serialize"] }
 serde = { version = "1.0.219", features = ["derive"] }
 toml = "0.9.2"
-cpal = "0.16.0"
+cpal = "0.17.0"
 rand = "0.9.2"
 # not specifying symphonia-bundle-mp3 fails to compile
 symphonia-bundle-mp3 = "0.5.5"

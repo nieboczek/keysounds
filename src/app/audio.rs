@@ -48,7 +48,7 @@ impl App {
         let default_out_config = default_out_device.default_output_config().unwrap();
         let out_config = out_device.default_output_config().unwrap();
 
-        let sample_rate = default_out_config.sample_rate().0;
+        let sample_rate = default_out_config.sample_rate();
         let filter_chain = Arc::new(Mutex::new(FilterChain::new(sample_rate)));
 
         let mic_rb: HeapRb<f32> = HeapRb::new(RING_CAPACITY);

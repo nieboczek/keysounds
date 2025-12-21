@@ -63,10 +63,10 @@ impl AudioDecoder {
 
     pub fn seek(&mut self, pos: Duration) {
         let mut target = pos;
-        if let Some(total_duration) = self.total_duration {
-            if target > total_duration {
-                target = total_duration;
-            }
+        if let Some(total_duration) = self.total_duration
+            && target > total_duration
+        {
+            target = total_duration;
         }
 
         let active_channel = self.current_packet_offset % self.spec.channels.count();
