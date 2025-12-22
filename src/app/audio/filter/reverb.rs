@@ -1,4 +1,4 @@
-use crate::app::audio::AudioFilter;
+use crate::app::audio::SampleTransformer;
 
 pub(super) struct Reverb {
     combs: Vec<Comb>,
@@ -30,7 +30,7 @@ impl Reverb {
     }
 }
 
-impl AudioFilter for Reverb {
+impl SampleTransformer for Reverb {
     fn filter(&mut self, sample: f32) -> f32 {
         let mut acc = 0.0;
 

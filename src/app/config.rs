@@ -24,12 +24,12 @@ pub struct Keybind {
     pub shift: bool,
     pub ctrl: bool,
     pub alt: bool,
-    pub key: rdev::Key,
+    pub key: Key,
     pub action: Action,
 }
 
 impl Keybind {
-    pub fn default_keybind(key: rdev::Key, action: Action) -> Self {
+    pub fn default_keybind(key: Key, action: Action) -> Self {
         Keybind {
             shift: false,
             ctrl: true,
@@ -44,6 +44,7 @@ impl Keybind {
 pub struct Config {
     pub input_device: String,
     pub output_device: String,
+    pub virtual_output_device: String,
     pub rst_range: (f32, f32),
     pub rst_sfx_list: Vec<String>,
     pub keybinds: Vec<Keybind>,
@@ -70,7 +71,8 @@ impl App {
 
                 let config = Config {
                     input_device: String::new(),
-                    output_device: String::from("CABLE Input (VB-Audio Virtual Cable)"),
+                    output_device: String::new(),
+                    virtual_output_device: String::from("CABLE Input (VB-Audio Virtual Cable)"),
                     rst_range: (600.0, 900.0),
                     rst_sfx_list: Vec::new(),
                     keybinds: vec![

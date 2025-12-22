@@ -135,6 +135,10 @@ impl std::ops::BitOrAssign for StateStatus {
 }
 
 impl App {
+    pub fn device_desc_to_name(desc: cpal::DeviceDescription) -> String {
+        format!("{} ({})", desc.name(), desc.driver().unwrap())
+    }
+
     #[inline]
     pub fn new(action_channel: Arc<Mutex<Action>>) -> App {
         let config = Self::load_config_result();
@@ -143,34 +147,42 @@ impl App {
         let decoder = Arc::new(Mutex::new(None));
         let host = cpal::default_host();
 
-        let mic_device = host
-            .input_devices()
-            .unwrap()
-            .find(|device| {
-                device
-                    .description()
-                    .is_ok_and(|desc| desc.name() == config.input_device)
-            })
-            .expect("Could not find input device");
+        let Some(mic_device) = host.input_devices().unwrap().find(|device| {
+            device
+                .description()
+                .is_ok_and(|desc| Self::device_desc_to_name(desc) == config.input_device)
+        }) else {
+            panic!(
+                "Could not find input device in list:\n{:?}",
+                host.input_devices()
+                    .unwrap()
+                    .map(|d| Self::device_desc_to_name(d.description().unwrap()))
+                    .collect::<Vec<_>>()
+            );
+        };
 
-        let default_out_device = host
+        let out_device = host
             .default_output_device()
             .expect("No output devices present");
 
-        let out_device = host
-            .output_devices()
-            .unwrap()
-            .find(|device| {
-                device
-                    .description()
-                    .is_ok_and(|desc| desc.name() == config.input_device)
-            })
-            .expect("Output device not found");
+        let Some(virtual_out_device) = host.output_devices().unwrap().find(|device| {
+            device
+                .description()
+                .is_ok_and(|desc| Self::device_desc_to_name(desc) == config.virtual_output_device)
+        }) else {
+            panic!(
+                "Could not find output device in list:\n{:?}",
+                host.output_devices()
+                    .unwrap()
+                    .map(|d| Self::device_desc_to_name(d.description().unwrap()))
+                    .collect::<Vec<_>>()
+            );
+        };
 
         let (filter_chain, keep_alive) = Self::create_streams(
             &mic_device,
-            &default_out_device,
             &out_device,
+            &virtual_out_device,
             Arc::clone(&decoder),
         );
 

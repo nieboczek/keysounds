@@ -1,4 +1,4 @@
-use crate::app::config;
+use crate::app::config::AudioFilter;
 use reverb::Reverb;
 use simple::{BoostBass, Shittify};
 
@@ -6,11 +6,11 @@ mod reverb;
 mod simple;
 
 pub struct FilterChain {
-    filters: Vec<Box<dyn AudioFilter>>,
+    filters: Vec<Box<dyn SampleTransformer>>,
     sample_rate: u32,
 }
 
-pub trait AudioFilter: Send + Sync {
+pub trait SampleTransformer: Send + Sync {
     fn filter(&mut self, sample: f32) -> f32;
 }
 
@@ -29,24 +29,24 @@ impl FilterChain {
         sample
     }
 
-    pub fn sync_with_vector(&mut self, filters: Vec<config::AudioFilter>) {
+    pub fn sync_with_vector(&mut self, filters: Vec<AudioFilter>) {
         self.filters.clear();
         self.filters.extend(
             filters
                 .into_iter()
-                .map(|filter| Self::transform_filter(self.sample_rate, filter)),
+                .map(|filter| Self::filter_to_transformer(self.sample_rate, filter)),
         );
     }
 
-    fn transform_filter(sample_rate: u32, filter: config::AudioFilter) -> Box<dyn AudioFilter> {
+    fn filter_to_transformer(sample_rate: u32, filter: AudioFilter) -> Box<dyn SampleTransformer> {
         match filter {
-            config::AudioFilter::BoostBass { gain, cutoff } => {
+            AudioFilter::BoostBass { gain, cutoff } => {
                 Box::new(BoostBass::new(sample_rate, cutoff, gain))
             }
-            config::AudioFilter::Shittify { strength, cutoff } => {
+            AudioFilter::Shittify { strength, cutoff } => {
                 Box::new(Shittify::new(strength, cutoff))
             }
-            config::AudioFilter::Reverb {
+            AudioFilter::Reverb {
                 room_size,
                 damping,
                 wet,

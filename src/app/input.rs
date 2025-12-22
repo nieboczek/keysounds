@@ -226,7 +226,7 @@ impl App {
                             a.mode = Mode::EditInputDevice;
                         }
                         1 => {
-                            a.input = a.config.output_device.to_string();
+                            a.input = a.config.virtual_output_device.to_string();
                             a.mode = Mode::EditOutputDevice;
                         }
                         2 => return StateStatus::Unaffected, // separator
@@ -266,7 +266,7 @@ impl App {
                 k,
                 |_, _| StateStatus::Unaffected,
                 |a| {
-                    a.config.output_device = a.input.split_off(0);
+                    a.config.virtual_output_device = a.input.split_off(0);
                     a.mode = Mode::EditConfig;
                     StateStatus::Updated
                 },
@@ -359,7 +359,7 @@ impl App {
     #[inline]
     fn is_separator(&self, idx: usize) -> bool {
         match self.mode {
-            Mode::Normal => idx == 4,
+            Mode::Normal => idx == 3,
             Mode::EditConfig => idx == 1 || idx == 5,
             Mode::EditSfxs => false,
             _ => unreachable!(),

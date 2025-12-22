@@ -204,7 +204,7 @@ impl App {
             editable_string!(
                 self,
                 "Output device",
-                self.config.output_device,
+                self.config.virtual_output_device,
                 EditOutputDevice,
                 Self::validate_output_device
             ),

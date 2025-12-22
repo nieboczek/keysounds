@@ -1,4 +1,4 @@
-use crate::app::audio::AudioFilter;
+use crate::app::audio::SampleTransformer;
 
 pub(super) struct Shittify {
     strength: i32,
@@ -11,7 +11,7 @@ impl Shittify {
     }
 }
 
-impl AudioFilter for Shittify {
+impl SampleTransformer for Shittify {
     fn filter(&mut self, sample: f32) -> f32 {
         // LOSE 16 BITS
         let sample_i16 = (sample * i16::MAX as f32) as i16;
@@ -42,7 +42,7 @@ impl BoostBass {
     }
 }
 
-impl AudioFilter for BoostBass {
+impl SampleTransformer for BoostBass {
     fn filter(&mut self, sample: f32) -> f32 {
         let rc = 1.0 / (2.0 * std::f32::consts::PI * self.cutoff);
         let dt = 1.0 / self.sample_rate;

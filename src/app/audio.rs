@@ -8,7 +8,7 @@ use std::thread;
 use std::time::Duration;
 
 pub use decoder::AudioDecoder;
-pub use filter::{AudioFilter, FilterChain};
+pub use filter::{SampleTransformer, FilterChain};
 
 mod decoder;
 mod filter;
@@ -40,15 +40,15 @@ impl App {
     #[inline]
     pub(super) fn create_streams(
         mic_device: &Device,
-        default_out_device: &Device,
         out_device: &Device,
+        virtual_out_device: &Device,
         decoder: Arc<Mutex<Option<AudioDecoder>>>,
     ) -> (Arc<Mutex<FilterChain>>, KeepAlive) {
         let mic_config = mic_device.default_input_config().unwrap();
-        let default_out_config = default_out_device.default_output_config().unwrap();
         let out_config = out_device.default_output_config().unwrap();
+        let virtual_out_config = virtual_out_device.default_output_config().unwrap();
 
-        let sample_rate = default_out_config.sample_rate();
+        let sample_rate = out_config.sample_rate();
         let filter_chain = Arc::new(Mutex::new(FilterChain::new(sample_rate)));
 
         let mic_rb: HeapRb<f32> = HeapRb::new(RING_CAPACITY);
@@ -70,9 +70,9 @@ impl App {
             )
             .unwrap();
 
-        let default_out_stream = default_out_device
+        let out_stream = out_device
             .build_output_stream(
-                &default_out_config.into(),
+                &out_config.into(),
                 move |data: &mut [f32], _| {
                     decoder_cons.pop_slice(data);
                 },
@@ -82,9 +82,9 @@ impl App {
             .unwrap();
 
         let filter_chain_too = Arc::clone(&filter_chain);
-        let out_stream = out_device
+        let virtual_out_stream = virtual_out_device
             .build_output_stream(
-                &out_config.into(),
+                &virtual_out_config.into(),
                 move |data: &mut [f32], _| {
                     let mut mic_buf = vec![0.0f32; data.len()];
                     let mut decoder_buf = vec![0.0f32; data.len()];
@@ -137,9 +137,9 @@ impl App {
         });
 
         mic_stream.play().unwrap();
-        default_out_stream.play().unwrap();
         out_stream.play().unwrap();
+        virtual_out_stream.play().unwrap();
 
-        (filter_chain, (mic_stream, default_out_stream, out_stream))
+        (filter_chain, (mic_stream, out_stream, virtual_out_stream))
     }
 }
