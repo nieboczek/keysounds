@@ -2,13 +2,13 @@ use crate::app::{App, Sfx, SfxData};
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{Device, Stream};
 use ringbuf::HeapRb;
-use ringbuf::traits::{Consumer, Producer, Split};
+use ringbuf::traits::{Consumer, Observer, Producer, Split};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 pub use decoder::AudioDecoder;
-pub use filter::{SampleTransformer, FilterChain};
+pub use filter::{FilterChain, SampleTransformer};
 
 mod decoder;
 mod filter;
@@ -86,15 +86,13 @@ impl App {
             .build_output_stream(
                 &virtual_out_config.into(),
                 move |data: &mut [f32], _| {
-                    let mut mic_buf = vec![0.0f32; data.len()];
-                    let mut decoder_buf = vec![0.0f32; data.len()];
+                    let mut mic_iter = mic_cons.pop_iter();
+                    let mut decoder_iter = decoder_too_cons.pop_iter();
 
-                    decoder_too_cons.pop_slice(&mut decoder_buf);
-                    mic_cons.pop_slice(&mut mic_buf);
-
-                    let mut guard = filter_chain_too.lock().unwrap();
+                    let mut chain = filter_chain_too.lock().unwrap();
                     for i in 0..data.len() {
-                        data[i] = guard.filter(mic_buf[i]) + decoder_buf[i];
+                        data[i] = chain.filter(mic_iter.next().unwrap_or_default())
+                            + decoder_iter.next().unwrap_or_default();
                     }
                 },
                 |err| eprintln!("Output stream error: {err}"),
@@ -105,9 +103,21 @@ impl App {
         thread::spawn(move || {
             let mut buf = [0.0f32; BLOCK_SAMPLES];
             loop {
+                if decoder_prod.vacant_len() < RING_CAPACITY / 2 {
+                    thread::sleep(Duration::from_millis(10));
+                    continue;
+                }
+
                 let mut guard = decoder.lock().unwrap();
                 let Some(decoder) = guard.as_mut() else {
-                    thread::sleep(Duration::from_millis(5));
+                    for i in 0..BLOCK_SAMPLES {
+                        buf[i] = 0.0;
+                    }
+
+                    decoder_prod.push_slice(&buf);
+                    decoder_too_prod.push_slice(&buf);
+
+                    thread::sleep(Duration::from_millis(10));
                     continue;
                 };
 
@@ -132,7 +142,7 @@ impl App {
 
                 decoder_prod.push_slice(&buf);
                 decoder_too_prod.push_slice(&buf);
-                thread::sleep(Duration::from_micros(100));
+                thread::sleep(Duration::from_millis(5));
             }
         });
 

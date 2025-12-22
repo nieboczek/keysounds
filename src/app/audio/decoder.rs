@@ -14,7 +14,6 @@ use symphonia::core::units;
 use symphonia::default::{get_codecs, get_probe};
 
 // TODO: replace unwraps in this file with actual error handling
-// TODO(13-12-2025): this outputs static noise :skull:
 
 pub struct AudioDecoder {
     decoder: Box<dyn Decoder>,
