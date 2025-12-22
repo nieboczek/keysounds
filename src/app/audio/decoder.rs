@@ -22,6 +22,7 @@ pub struct AudioDecoder {
     total_duration: Option<Duration>,
     buffer: SampleBuffer<f32>,
     spec: SignalSpec,
+    counted_samples: usize,
 }
 
 impl AudioDecoder {
@@ -56,6 +57,7 @@ impl AudioDecoder {
 
         let sample = *self.buffer.samples().get(self.current_packet_offset)?;
         self.current_packet_offset += 1;
+        self.counted_samples += 1;
 
         Some(sample)
     }
@@ -88,7 +90,10 @@ impl AudioDecoder {
     }
 
     pub fn get_pos(&self) -> Duration {
-        Duration::default()
+        let secs =
+            self.counted_samples as f64 / self.spec.rate as f64 / self.spec.channels.count() as f64;
+
+        Duration::from_secs_f64(secs)
     }
 
     pub(super) fn total_duration(&self) -> Option<Duration> {
@@ -185,6 +190,7 @@ impl AudioDecoder {
             total_duration,
             buffer,
             spec,
+            counted_samples: 0,
         }
     }
 }
