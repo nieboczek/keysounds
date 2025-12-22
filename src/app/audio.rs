@@ -24,7 +24,7 @@ const RING_CAPACITY: usize = BLOCK_SAMPLES * RING_BLOCKS;
 
 impl App {
     pub(super) fn play_sfx(&mut self, sfx: Sfx, randomly_triggered: bool) {
-        let decoder = AudioDecoder::new(&sfx.path);
+        let decoder = AudioDecoder::new(&sfx.path, sfx.volume);
         let duration = decoder.total_duration().unwrap_or_default();
 
         let mut guard = self.decoder.lock().unwrap();

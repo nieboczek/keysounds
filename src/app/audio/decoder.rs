@@ -23,16 +23,17 @@ pub struct AudioDecoder {
     buffer: SampleBuffer<f32>,
     spec: SignalSpec,
     counted_samples: usize,
+    volume: f32,
 }
 
 impl AudioDecoder {
-    pub fn new(audio_path: &str) -> Self {
+    pub fn new(audio_path: &str, volume: f32) -> Self {
         let path = Path::new(audio_path);
         let file = File::open(path).unwrap();
         let byte_len = file.metadata().unwrap().len();
         let buf_reader = BufReader::new(file);
 
-        Self::create_decoder(buf_reader, byte_len, path.extension())
+        Self::create_decoder(volume, buf_reader, byte_len, path.extension())
     }
 
     pub fn next_sample(&mut self) -> Option<f32> {
@@ -59,7 +60,7 @@ impl AudioDecoder {
         self.current_packet_offset += 1;
         self.counted_samples += 1;
 
-        Some(sample)
+        Some(sample * self.volume)
     }
 
     pub fn seek(&mut self, pos: Duration) {
@@ -109,6 +110,7 @@ impl AudioDecoder {
     }
 
     fn create_decoder(
+        volume: f32,
         buf: BufReader<File>,
         byte_len: u64,
         file_extension: Option<&OsStr>,
@@ -191,6 +193,7 @@ impl AudioDecoder {
             buffer,
             spec,
             counted_samples: 0,
+            volume,
         }
     }
 }
