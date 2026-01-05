@@ -1,17 +1,26 @@
-use std::ffi::OsStr;
-use std::fs::File;
-use std::io;
-use std::io::{BufReader, Read, Seek, SeekFrom};
-use std::path::Path;
-use std::time::Duration;
-use symphonia::core::audio::{AudioBufferRef, SampleBuffer, SignalSpec};
-use symphonia::core::codecs::{CODEC_TYPE_NULL, Decoder};
-use symphonia::core::errors::Error;
-use symphonia::core::formats::{FormatOptions, FormatReader, SeekMode, SeekTo};
-use symphonia::core::io::{MediaSource, MediaSourceStream};
-use symphonia::core::probe::Hint;
-use symphonia::core::units;
-use symphonia::default::{get_codecs, get_probe};
+use audioadapter_buffers::direct::InterleavedSlice;
+use rubato::{Async, Resampler, WindowFunction};
+use std::{
+    ffi::OsStr,
+    fs::File,
+    io::{self, BufReader, Read, Seek, SeekFrom},
+    path::Path,
+    time::Duration,
+};
+use symphonia::{
+    core::{
+        audio::{AudioBufferRef, SampleBuffer, SignalSpec},
+        codecs::{CODEC_TYPE_NULL, Decoder},
+        errors::Error,
+        formats::{FormatOptions, FormatReader, SeekMode, SeekTo},
+        io::{MediaSource, MediaSourceStream},
+        probe::Hint,
+        units,
+    },
+    default::{get_codecs, get_probe},
+};
+
+use crate::app::audio::{BLOCK_FRAMES, BLOCK_SAMPLES, CHANNELS};
 
 // TODO: replace unwraps in this file with actual error handling
 
@@ -24,42 +33,38 @@ pub struct AudioDecoder {
     spec: SignalSpec,
     counted_samples: usize,
     volume: f32,
+    previous_mono_sample: Option<f32>,
+
+    resampler: Option<Async<f32>>,
+    resampler_out: Vec<f32>,
+    resampler_pos: usize,
 }
 
 impl AudioDecoder {
-    pub fn new(audio_path: &str, volume: f32) -> Self {
+    pub fn new(audio_path: &str, sample_rate: u32, volume: f32) -> Self {
         let path = Path::new(audio_path);
         let file = File::open(path).unwrap();
         let byte_len = file.metadata().unwrap().len();
         let buf_reader = BufReader::new(file);
 
-        Self::create_decoder(volume, buf_reader, byte_len, path.extension())
+        Self::create_decoder(sample_rate, volume, buf_reader, byte_len, path.extension())
     }
 
     pub fn next_sample(&mut self) -> Option<f32> {
-        if self.current_packet_offset >= self.buffer.len() {
-            let decoded = loop {
-                let packet = self.format.next_packet().ok()?;
-                let decoded = match self.decoder.decode(&packet) {
-                    Ok(decoded) => decoded,
-                    Err(Error::DecodeError(_)) => continue,
-                    Err(_) => return None,
-                };
+        let sample = if self.resampler.is_some() {
+            if self.resampler_pos >= self.resampler_out.len() {
+                self.resample_batch();
+                self.resampler_pos = 0;
+            }
 
-                if decoded.frames() > 0 {
-                    break decoded;
-                }
-            };
+            let sample = self.resampler_out[self.resampler_pos];
+            self.resampler_pos += 1;
+            sample
+        } else {
+            self.next_raw_sample()?
+        };
 
-            decoded.spec().clone_into(&mut self.spec);
-            self.buffer = Self::get_buffer(decoded, &self.spec);
-            self.current_packet_offset = 0;
-        }
-
-        let sample = *self.buffer.samples().get(self.current_packet_offset)?;
-        self.current_packet_offset += 1;
         self.counted_samples += 1;
-
         Some(sample * self.volume)
     }
 
@@ -101,6 +106,69 @@ impl AudioDecoder {
         self.total_duration
     }
 
+    fn resample_batch(&mut self) -> Option<()> {
+        let mut input = [0.0f32; BLOCK_SAMPLES];
+
+        if self.spec.channels.count() == 1 {
+            for frame in 0..BLOCK_SAMPLES {
+                input[frame] = self.next_raw_sample()?;
+            }
+        } else {
+            for frame in 0..BLOCK_FRAMES {
+                for ch in 0..CHANNELS {
+                    // TODO: instead of Try (?), operate on lower sample count
+                    // TODO: or even precalculate some count at audio decoder creation
+                    input[frame * CHANNELS + ch] = self.next_raw_sample()?;
+                }
+            }
+        }
+
+        let output_frames = self.resampler_out.len() / 2;
+        let input = InterleavedSlice::new(&input, CHANNELS, BLOCK_FRAMES).unwrap();
+        let mut output =
+            InterleavedSlice::new_mut(&mut self.resampler_out, CHANNELS, output_frames).unwrap();
+
+        self.resampler
+            .as_mut()?
+            .process_into_buffer(&input, &mut output, None)
+            .unwrap();
+
+        Some(())
+    }
+
+    fn next_raw_sample(&mut self) -> Option<f32> {
+        if self.spec.channels.count() == 1 {
+            if let Some(previous) = self.previous_mono_sample.take() {
+                return Some(previous);
+            }
+        }
+
+        if self.current_packet_offset >= self.buffer.len() {
+            let decoded = loop {
+                let packet = self.format.next_packet().ok()?;
+                let decoded = match self.decoder.decode(&packet) {
+                    Ok(decoded) => decoded,
+                    Err(Error::DecodeError(_)) => continue,
+                    Err(_) => return None,
+                };
+
+                if decoded.frames() > 0 {
+                    break decoded;
+                }
+            };
+
+            decoded.spec().clone_into(&mut self.spec);
+            self.buffer = Self::get_buffer(decoded, &self.spec);
+            self.current_packet_offset = 0;
+        }
+
+        let sample = *self.buffer.samples().get(self.current_packet_offset)?;
+        self.current_packet_offset += 1;
+        self.previous_mono_sample = Some(sample);
+
+        Some(sample)
+    }
+
     #[inline]
     fn get_buffer(decoded: AudioBufferRef, spec: &SignalSpec) -> SampleBuffer<f32> {
         let duration = units::Duration::from(decoded.capacity() as u64);
@@ -110,6 +178,7 @@ impl AudioDecoder {
     }
 
     fn create_decoder(
+        target_sample_rate: u32,
         volume: f32,
         buf: BufReader<File>,
         byte_len: u64,
@@ -185,6 +254,41 @@ impl AudioDecoder {
         let spec = *decoded.spec();
         let buffer = Self::get_buffer(decoded, &spec);
 
+        let resampler = if target_sample_rate != spec.rate {
+            const WINDOW_FUNCTION: WindowFunction = WindowFunction::BlackmanHarris2;
+            const SINC_LEN: usize = 256;
+            const OVERSAMPLING_FACTOR: usize = 128;
+
+            let ratio = target_sample_rate as f64 / spec.rate as f64;
+            let params = rubato::SincInterpolationParameters {
+                sinc_len: SINC_LEN,
+                f_cutoff: rubato::calculate_cutoff(SINC_LEN, WINDOW_FUNCTION),
+                interpolation: rubato::SincInterpolationType::Quadratic,
+                oversampling_factor: OVERSAMPLING_FACTOR,
+                window: WINDOW_FUNCTION,
+            };
+
+            Some(
+                Async::new_sinc(
+                    ratio,
+                    1.0,
+                    &params,
+                    BLOCK_FRAMES,
+                    CHANNELS,
+                    rubato::FixedAsync::Input,
+                )
+                .unwrap(),
+            )
+        } else {
+            None
+        };
+
+        let capacity = if let Some(resampler) = &resampler {
+            resampler.output_frames_max() * 2
+        } else {
+            0
+        };
+
         AudioDecoder {
             decoder,
             current_packet_offset: 0,
@@ -194,6 +298,10 @@ impl AudioDecoder {
             spec,
             counted_samples: 0,
             volume,
+            previous_mono_sample: None,
+            resampler,
+            resampler_out: vec![0.0f32; capacity],
+            resampler_pos: 0,
         }
     }
 }

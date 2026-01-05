@@ -24,7 +24,7 @@ const RING_CAPACITY: usize = BLOCK_SAMPLES * RING_BLOCKS;
 
 impl App {
     pub(super) fn play_sfx(&mut self, sfx: Sfx, randomly_triggered: bool) {
-        let decoder = AudioDecoder::new(&sfx.path, sfx.volume);
+        let decoder = AudioDecoder::new(&sfx.path, self.target_sample_rate, sfx.volume);
         let duration = decoder.total_duration().unwrap_or_default();
 
         let mut guard = self.decoder.lock().unwrap();
@@ -43,7 +43,7 @@ impl App {
         out_device: &Device,
         virtual_out_device: &Device,
         decoder: Arc<Mutex<Option<AudioDecoder>>>,
-    ) -> (Arc<Mutex<FilterChain>>, KeepAlive) {
+    ) -> (Arc<Mutex<FilterChain>>, u32, KeepAlive) {
         let mic_config = mic_device.default_input_config().unwrap();
         let out_config = out_device.default_output_config().unwrap();
         let virtual_out_config = virtual_out_device.default_output_config().unwrap();
@@ -150,6 +150,10 @@ impl App {
         out_stream.play().unwrap();
         virtual_out_stream.play().unwrap();
 
-        (filter_chain, (mic_stream, out_stream, virtual_out_stream))
+        (
+            filter_chain,
+            sample_rate,
+            (mic_stream, out_stream, virtual_out_stream),
+        )
     }
 }

@@ -1,11 +1,15 @@
-use crate::app::audio::{AudioDecoder, FilterChain};
-use crate::app::config::{Config, Keybind};
+use crate::app::{
+    audio::{AudioDecoder, FilterChain},
+    config::{AudioFilter, Config, Keybind},
+};
 use cpal::traits::{DeviceTrait, HostTrait};
 use rand::rngs::ThreadRng;
 use ratatui::widgets::ListState;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 pub mod audio;
 pub mod config;
@@ -21,6 +25,7 @@ pub struct App {
     rst_deadline: Instant,
     mode: Mode,
     sfx_data: Option<SfxData>,
+    target_sample_rate: u32,
     decoder: Arc<Mutex<Option<AudioDecoder>>>,
     input: String,
     config: Config,
@@ -70,7 +75,7 @@ pub enum Action {
     #[serde(rename = "stop_sfx")]
     StopSfx,
     #[serde(rename = "filter_preset")]
-    FilterPreset(Vec<config::AudioFilter>),
+    FilterPreset(Vec<AudioFilter>),
 
     #[serde(rename = "set_keybinds")]
     SetKeybinds(Vec<Keybind>),
@@ -179,7 +184,7 @@ impl App {
             );
         };
 
-        let (filter_chain, keep_alive) = Self::create_streams(
+        let (filter_chain, sample_rate, keep_alive) = Self::create_streams(
             &mic_device,
             &out_device,
             &virtual_out_device,
@@ -194,6 +199,7 @@ impl App {
             rst_deadline: Instant::now(),
             mode: Mode::Normal,
             sfx_data: None,
+            target_sample_rate: sample_rate,
             decoder,
             input: String::new(),
             config,
