@@ -16,6 +16,7 @@ pub mod config;
 pub mod imp;
 pub mod input;
 pub mod widget;
+pub use input::Mode;
 
 pub struct App {
     _keep_alive: audio::KeepAlive,
@@ -90,28 +91,6 @@ enum StateStatus {
     Updated,
     IgnoreNextKeyPress,
     Quit,
-}
-
-#[derive(PartialEq)]
-enum Mode {
-    Null,
-
-    Normal,
-    SearchSfx,
-    EditConfig,
-
-    EditInputDevice,
-    EditOutputDevice,
-    EditSfxs,
-
-    SelectedSfxName,
-    SelectedSfxPath,
-    SelectedSfxVolume,
-    SelectedSfxSkipTo,
-    EditSfxName,
-    EditSfxPath,
-    EditSfxVolume,
-    EditSfxSkipTo,
 }
 
 impl std::ops::BitOrAssign for StateStatus {

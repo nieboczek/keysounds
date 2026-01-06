@@ -1,4 +1,4 @@
-use crate::app::{App, Mode};
+use crate::app::{App, Mode, input::{SfxProp, SfxPropType}};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Stylize;
@@ -64,7 +64,7 @@ impl Widget for &mut App {
                 .areas(area);
 
                 self.render_player(player_area, buf);
-                if self.mode == Mode::Normal {
+                if matches!(self.mode, Mode::Normal) {
                     self.render_selectables(selectables_area, buf);
                 } else {
                     self.render_input(selectables_area, buf);
@@ -73,29 +73,8 @@ impl Widget for &mut App {
             Mode::EditConfig | Mode::EditInputDevice | Mode::EditOutputDevice => {
                 self.render_config_editor(area, buf);
             }
-            Mode::EditSfxs => {
-                self.render_sfxs(area, buf);
-            }
-            Mode::EditSfxName
-            | Mode::EditSfxPath
-            | Mode::EditSfxVolume
-            | Mode::EditSfxSkipTo
-            | Mode::SelectedSfxName
-            | Mode::SelectedSfxPath
-            | Mode::SelectedSfxVolume
-            | Mode::SelectedSfxSkipTo => {
-                self.render_sfx(area, buf);
-            }
-            Mode::Null => {
-                Paragraph::new(Text::from_iter([
-                    "You have f'd something up.",
-                    "Consider reporting this as an issue",
-                    "(if this is an build from master),",
-                    "or fix it yourself.",
-                    "(Tried to render Mode::Null)",
-                ]))
-                .render(area, buf);
-            }
+            Mode::EditSfxs => self.render_sfxs(area, buf),
+            Mode::SfxProp(_) => self.render_sfx(area, buf),
         }
     }
 }
@@ -107,8 +86,8 @@ impl App {
         let sfx = &self.config.sfx[self.list_state.selected().unwrap() - 1];
 
         macro_rules! sfx_prop {
-            ($app:expr, $value:expr, $name:expr, $selected_mode:ident, $edit_mode:ident, $validate_fn:expr) => {
-                if $app.mode == Mode::$edit_mode {
+            ($app:expr, $value:expr, $name:expr, $prop_type:ident, $validate_fn:expr) => {
+                if matches!($app.mode, Mode::SfxProp(SfxProp::Editing(SfxPropType::$prop_type))) {
                     let span = Span::raw(&$app.input);
                     let span = if $validate_fn(&$app.input) {
                         span.green()
@@ -117,7 +96,7 @@ impl App {
                     };
 
                     Line::from_iter([Span::raw(concat!("* ", $name, ": ")), span])
-                } else if $app.mode == Mode::$selected_mode {
+                } else if matches!($app.mode, Mode::SfxProp(SfxProp::Selected(SfxPropType::$prop_type))) {
                     text!(format!(concat!("* ", $name, ": {}"), $value))
                 } else {
                     text!(format!(concat!("  ", $name, ": {}"), $value))
@@ -129,32 +108,28 @@ impl App {
             self,
             sfx.name,
             "Name",
-            SelectedSfxName,
-            EditSfxName,
+            Name,
             Self::validate_sfx_name
         );
         let path = sfx_prop!(
             self,
             sfx.path,
             "Path",
-            SelectedSfxPath,
-            EditSfxPath,
+            Path,
             Self::validate_sfx_path
         );
         let volume = sfx_prop!(
             self,
             sfx.volume,
             "Volume",
-            SelectedSfxVolume,
-            EditSfxVolume,
+            Volume,
             Self::validate_sfx_volume
         );
         let skip_to = sfx_prop!(
             self,
             sfx.skip_to,
             "Skip to",
-            SelectedSfxSkipTo,
-            EditSfxSkipTo,
+            SkipTo,
             Self::validate_sfx_skip_to
         );
 
@@ -178,7 +153,7 @@ impl App {
     fn render_config_editor(&mut self, area: Rect, buf: &mut Buffer) {
         macro_rules! editable_string {
             ($app:expr, $label:expr, $value:expr, $edit_mode:ident, $validate_fn:expr) => {
-                if $app.mode == Mode::$edit_mode {
+                if matches!($app.mode, Mode::$edit_mode) {
                     let span = Span::raw(&$app.input);
                     let span = if $validate_fn(&$app.input) {
                         span.green()

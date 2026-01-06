@@ -1,11 +1,84 @@
-use crate::app::{App, Mode, Sfx, StateStatus};
+use crate::app::{App, Sfx, StateStatus};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+
+pub enum Mode {
+    Normal,
+    SearchSfx,
+    EditConfig,
+    EditInputDevice,
+    EditOutputDevice,
+    EditSfxs,
+    SfxProp(SfxProp),
+}
+
+pub enum SfxProp {
+    Selected(SfxPropType),
+    Editing(SfxPropType),
+}
+
+#[derive(Clone, Copy)]
+pub enum SfxPropType {
+    Name,
+    Path,
+    Volume,
+    SkipTo,
+}
+
+impl SfxPropType {
+    #[inline]
+    fn previous(&self) -> Option<SfxPropType> {
+        match self {
+            Self::Name => None,
+            Self::Path => Some(Self::Name),
+            Self::Volume => Some(Self::Path),
+            Self::SkipTo => Some(Self::Volume),
+        }
+    }
+
+    #[inline]
+    fn next(&self) -> Option<SfxPropType> {
+        match self {
+            Self::Name => Some(Self::Path),
+            Self::Path => Some(Self::Volume),
+            Self::Volume => Some(Self::SkipTo),
+            Self::SkipTo => None,
+        }
+    }
+
+    #[inline]
+    fn get_input_string(&self, sfx: &Sfx) -> String {
+        match self {
+            Self::Name => sfx.name.to_string(),
+            Self::Path => sfx.path.to_string(),
+            Self::Volume => sfx.volume.to_string(),
+            Self::SkipTo => sfx.skip_to.to_string(),
+        }
+    }
+
+    #[inline]
+    fn set_property(&self, sfx: &mut Sfx, input: &mut String) {
+        match self {
+            Self::Name => sfx.name = input.split_off(0),
+            Self::Path => sfx.path = input.split_off(0),
+            Self::Volume => {
+                if let Ok(volume) = input.parse::<f32>() {
+                    sfx.volume = volume;
+                }
+            }
+            Self::SkipTo => {
+                if let Ok(skip_to) = input.parse::<f32>() {
+                    sfx.skip_to = skip_to;
+                }
+            }
+        }
+    }
+}
 
 impl App {
     fn m_add_to_input(
         &mut self,
         k: KeyCode,
-        handle_special: impl Fn(&mut App, KeyCode) -> StateStatus,
+        handle_special: impl Fn(&mut App) -> StateStatus,
         handle_submit: impl Fn(&mut App) -> StateStatus,
     ) -> StateStatus {
         match k {
@@ -17,7 +90,7 @@ impl App {
                 self.input.pop();
             }
             KeyCode::Enter => return handle_submit(self),
-            k => return handle_special(self, k),
+            _ => return handle_special(self),
         }
         StateStatus::Updated
     }
@@ -25,7 +98,7 @@ impl App {
     fn m_list_input(
         &mut self,
         k: KeyCode,
-        handle_special: impl Fn(&mut App, KeyCode) -> StateStatus,
+        handle_special: impl Fn(&mut App) -> StateStatus,
         handle_submit: impl Fn(&mut App, usize) -> StateStatus,
         handle_esc: impl Fn(&mut App),
     ) -> StateStatus {
@@ -46,63 +119,9 @@ impl App {
             }
             KeyCode::Esc => handle_esc(self),
             KeyCode::Enter => return handle_submit(self, self.list_state.selected().unwrap()),
-            k => return handle_special(self, k),
+            _ => return handle_special(self),
         }
         StateStatus::Updated
-    }
-
-    fn m_sfx_prop_selected_input(
-        &mut self,
-        k: KeyCode,
-        previous_mode: Mode,
-        next_mode: Mode,
-        submit_mode: Mode,
-        input_getter: impl Fn(&Sfx) -> String,
-    ) -> StateStatus {
-        match k {
-            KeyCode::Up => {
-                if previous_mode != Mode::Null {
-                    self.mode = previous_mode;
-                    return StateStatus::Updated;
-                }
-            }
-            KeyCode::Down => {
-                if next_mode != Mode::Null {
-                    self.mode = next_mode;
-                    return StateStatus::Updated;
-                }
-            }
-            KeyCode::Enter => {
-                self.input =
-                    input_getter(&self.config.sfx[self.list_state.selected().unwrap() - 1]);
-                self.mode = submit_mode;
-                return StateStatus::Updated;
-            }
-            KeyCode::Esc => {
-                self.mode = Mode::EditSfxs;
-                return StateStatus::Updated;
-            }
-            _ => {}
-        }
-        StateStatus::Unaffected
-    }
-
-    fn m_sfx_prop_edit_input(
-        &mut self,
-        k: KeyCode,
-        modify: impl Fn(&mut Sfx, &mut String) -> Mode,
-    ) -> StateStatus {
-        self.m_add_to_input(
-            k,
-            |_, _| StateStatus::Unaffected,
-            |a| {
-                a.mode = modify(
-                    &mut a.config.sfx[a.list_state.selected().unwrap() - 1],
-                    &mut a.input,
-                );
-                StateStatus::Updated
-            },
-        )
     }
 
     #[inline]
@@ -120,7 +139,7 @@ impl App {
         *state_status |= match self.mode {
             Mode::Normal => self.m_list_input(
                 k,
-                |a, k| match k {
+                |a| match k {
                     KeyCode::Char('q') => StateStatus::Quit,
                     KeyCode::Char('r') => {
                         a.load_config();
@@ -163,7 +182,7 @@ impl App {
                 |_| {},
             ),
             Mode::SearchSfx => match k {
-                KeyCode::Char(ch) if self.mode == Mode::SearchSfx => {
+                KeyCode::Char(ch) if matches!(self.mode, Mode::SearchSfx) => {
                     self.input.push(ch);
                     let input = &self.input.to_ascii_lowercase();
 
@@ -212,7 +231,7 @@ impl App {
             },
             Mode::EditConfig => self.m_list_input(
                 k,
-                |_, k| {
+                |_| {
                     if k == KeyCode::Char('q') {
                         StateStatus::Quit
                     } else {
@@ -255,7 +274,7 @@ impl App {
             ),
             Mode::EditInputDevice => self.m_add_to_input(
                 k,
-                |_, _| StateStatus::Unaffected,
+                |_| StateStatus::Unaffected,
                 |a| {
                     a.config.input_device = a.input.split_off(0);
                     a.mode = Mode::EditConfig;
@@ -264,7 +283,7 @@ impl App {
             ),
             Mode::EditOutputDevice => self.m_add_to_input(
                 k,
-                |_, _| StateStatus::Unaffected,
+                |_| StateStatus::Unaffected,
                 |a| {
                     a.config.virtual_output_device = a.input.split_off(0);
                     a.mode = Mode::EditConfig;
@@ -273,7 +292,7 @@ impl App {
             ),
             Mode::EditSfxs => self.m_list_input(
                 k,
-                |_, _| StateStatus::Unaffected,
+                |_| StateStatus::Unaffected,
                 |a, idx| {
                     match idx {
                         0 => {
@@ -287,9 +306,9 @@ impl App {
                                 },
                             );
                             a.list_state.select(Some(1));
-                            a.mode = Mode::SelectedSfxName;
+                            a.mode = Mode::SfxProp(SfxProp::Selected(SfxPropType::Name));
                         }
-                        1.. => a.mode = Mode::SelectedSfxName,
+                        1.. => a.mode = Mode::SfxProp(SfxProp::Selected(SfxPropType::Name)),
                     }
                     StateStatus::Updated
                 },
@@ -298,61 +317,46 @@ impl App {
                     a.mode = Mode::EditConfig;
                 },
             ),
-            Mode::SelectedSfxName => self.m_sfx_prop_selected_input(
-                k,
-                Mode::Null,
-                Mode::SelectedSfxPath,
-                Mode::EditSfxName,
-                |a| a.name.to_string(),
-            ),
-            Mode::EditSfxName => self.m_sfx_prop_edit_input(k, |a, s| {
-                a.name = s.split_off(0);
-                Mode::SelectedSfxName
-            }),
-            Mode::SelectedSfxPath => self.m_sfx_prop_selected_input(
-                k,
-                Mode::SelectedSfxName,
-                Mode::SelectedSfxVolume,
-                Mode::EditSfxPath,
-                |a| a.path.to_string(),
-            ),
-            Mode::EditSfxPath => self.m_sfx_prop_edit_input(k, |a, s| {
-                a.path = s.split_off(0);
-                Mode::SelectedSfxPath
-            }),
-            Mode::SelectedSfxVolume => self.m_sfx_prop_selected_input(
-                k,
-                Mode::SelectedSfxPath,
-                Mode::SelectedSfxSkipTo,
-                Mode::EditSfxVolume,
-                |a| a.volume.to_string(),
-            ),
-            Mode::EditSfxVolume => self.m_sfx_prop_edit_input(k, |a, s| {
-                if let Ok(volume) = s.parse::<f32>() {
-                    a.volume = volume;
-                }
-                Mode::SelectedSfxVolume
-            }),
-            Mode::SelectedSfxSkipTo => self.m_sfx_prop_selected_input(
-                k,
-                Mode::SelectedSfxVolume,
-                Mode::Null,
-                Mode::EditSfxSkipTo,
-                |a| a.skip_to.to_string(),
-            ),
-            Mode::EditSfxSkipTo => self.m_sfx_prop_edit_input(k, |a, s| {
-                if let Ok(skip_to) = s.parse::<f32>() {
-                    a.skip_to = skip_to;
-                }
-                Mode::SelectedSfxSkipTo
-            }),
-            Mode::Null => {
-                if k == KeyCode::Char('q') {
-                    StateStatus::Quit
-                } else {
-                    StateStatus::Unaffected
+            Mode::SfxProp(SfxProp::Selected(prop_type)) => {
+                match k {
+                    KeyCode::Up => {
+                        if let Some(previous) = prop_type.previous() {
+                            self.mode = Mode::SfxProp(SfxProp::Selected(previous));
+                            StateStatus::Updated
+                        } else {
+                            StateStatus::Unaffected
+                        }
+                    }
+                    KeyCode::Down => {
+                        if let Some(next) = prop_type.next() {
+                            self.mode = Mode::SfxProp(SfxProp::Selected(next));
+                            StateStatus::Updated
+                        } else {
+                            StateStatus::Unaffected
+                        }
+                    }
+                    KeyCode::Enter => {
+                        self.input = prop_type.get_input_string(&self.config.sfx[self.list_state.selected().unwrap() - 1]);
+                        self.mode = Mode::SfxProp(SfxProp::Editing(prop_type));
+                        StateStatus::Updated
+                    }
+                    KeyCode::Esc => {
+                        self.mode = Mode::EditSfxs;
+                        StateStatus::Updated
+                    }
+                    _ => StateStatus::Unaffected
                 }
             }
+            Mode::SfxProp(SfxProp::Editing(prop_type)) => 
+                self.m_add_to_input(
+                    k,
+                    |_| StateStatus::Unaffected,
+                    |a| {
+                        prop_type.set_property(&mut a.config.sfx[a.list_state.selected().unwrap() - 1], &mut a.input);
+                        a.mode = Mode::SfxProp(SfxProp::Selected(prop_type));
+                        StateStatus::Updated
+                    },
+                ),
         };
     }
 
