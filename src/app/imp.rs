@@ -133,10 +133,10 @@ impl App {
                 ($expr:expr) => {
                     match chars.next() {
                         Some(ch) => {
-                            if $expr(ch) {
-                                return true;
+                            if !$expr(ch) {
+                                return false;
                             }
-                            false
+                            true
                         }
                         None => return true,
                     }
