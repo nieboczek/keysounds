@@ -38,6 +38,19 @@ impl App {
     }
 
     #[inline]
+    pub(super) fn play_sfx_from_input(&mut self) {
+        self.play_sfx(
+            Sfx {
+                name: "SFX from path".to_string(),
+                path: self.input.trim_matches('"').to_string(),
+                volume: 1.0,
+                skip_to: 0.0,
+            },
+            false,
+        );
+    }
+
+    #[inline]
     pub(super) fn create_streams(
         mic_device: &Device,
         out_device: &Device,

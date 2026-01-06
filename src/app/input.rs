@@ -182,27 +182,26 @@ impl App {
                 |_| {},
             ),
             Mode::SearchSfx => match k {
-                KeyCode::Char(ch) if matches!(self.mode, Mode::SearchSfx) => {
+                KeyCode::Char(ch) => {
                     self.input.push(ch);
-                    let input = &self.input.to_ascii_lowercase();
-
-                    for sfx in &self.config.sfx {
-                        if sfx.name.to_ascii_lowercase().contains(input) {
-                            *state_status = StateStatus::Updated;
-                            return;
+                    if Self::is_possible_path(&self.input) {
+                        StateStatus::Updated
+                    } else {
+                        let input = &self.input.to_ascii_lowercase();
+                        for sfx in &self.config.sfx {
+                            if sfx.name.to_ascii_lowercase().contains(input) {
+                                *state_status = StateStatus::Updated;
+                                return;
+                            }
                         }
-                    }
 
-                    self.input.pop();
-                    StateStatus::Unaffected
+                        self.input.pop();
+                        StateStatus::Unaffected
+                    }
                 }
                 KeyCode::Esc => {
                     self.input.clear();
                     self.mode = Mode::Normal;
-                    StateStatus::Updated
-                }
-                KeyCode::Char(ch) => {
-                    self.input.push(ch);
                     StateStatus::Updated
                 }
                 KeyCode::Backspace => {
@@ -222,6 +221,10 @@ impl App {
 
                     if let Some(sfx) = option {
                         self.play_sfx(sfx.clone(), false);
+                        self.input = String::new();
+                        self.mode = Mode::Normal;
+                    } else if Self::is_possible_path(&self.input) {
+                        self.play_sfx_from_input();
                         self.input = String::new();
                         self.mode = Mode::Normal;
                     }
@@ -317,46 +320,48 @@ impl App {
                     a.mode = Mode::EditConfig;
                 },
             ),
-            Mode::SfxProp(SfxProp::Selected(prop_type)) => {
-                match k {
-                    KeyCode::Up => {
-                        if let Some(previous) = prop_type.previous() {
-                            self.mode = Mode::SfxProp(SfxProp::Selected(previous));
-                            StateStatus::Updated
-                        } else {
-                            StateStatus::Unaffected
-                        }
-                    }
-                    KeyCode::Down => {
-                        if let Some(next) = prop_type.next() {
-                            self.mode = Mode::SfxProp(SfxProp::Selected(next));
-                            StateStatus::Updated
-                        } else {
-                            StateStatus::Unaffected
-                        }
-                    }
-                    KeyCode::Enter => {
-                        self.input = prop_type.get_input_string(&self.config.sfx[self.list_state.selected().unwrap() - 1]);
-                        self.mode = Mode::SfxProp(SfxProp::Editing(prop_type));
+            Mode::SfxProp(SfxProp::Selected(prop_type)) => match k {
+                KeyCode::Up => {
+                    if let Some(previous) = prop_type.previous() {
+                        self.mode = Mode::SfxProp(SfxProp::Selected(previous));
                         StateStatus::Updated
+                    } else {
+                        StateStatus::Unaffected
                     }
-                    KeyCode::Esc => {
-                        self.mode = Mode::EditSfxs;
-                        StateStatus::Updated
-                    }
-                    _ => StateStatus::Unaffected
                 }
-            }
-            Mode::SfxProp(SfxProp::Editing(prop_type)) => 
-                self.m_add_to_input(
-                    k,
-                    |_| StateStatus::Unaffected,
-                    |a| {
-                        prop_type.set_property(&mut a.config.sfx[a.list_state.selected().unwrap() - 1], &mut a.input);
-                        a.mode = Mode::SfxProp(SfxProp::Selected(prop_type));
+                KeyCode::Down => {
+                    if let Some(next) = prop_type.next() {
+                        self.mode = Mode::SfxProp(SfxProp::Selected(next));
                         StateStatus::Updated
-                    },
-                ),
+                    } else {
+                        StateStatus::Unaffected
+                    }
+                }
+                KeyCode::Enter => {
+                    self.input = prop_type.get_input_string(
+                        &self.config.sfx[self.list_state.selected().unwrap() - 1],
+                    );
+                    self.mode = Mode::SfxProp(SfxProp::Editing(prop_type));
+                    StateStatus::Updated
+                }
+                KeyCode::Esc => {
+                    self.mode = Mode::EditSfxs;
+                    StateStatus::Updated
+                }
+                _ => StateStatus::Unaffected,
+            },
+            Mode::SfxProp(SfxProp::Editing(prop_type)) => self.m_add_to_input(
+                k,
+                |_| StateStatus::Unaffected,
+                |a| {
+                    prop_type.set_property(
+                        &mut a.config.sfx[a.list_state.selected().unwrap() - 1],
+                        &mut a.input,
+                    );
+                    a.mode = Mode::SfxProp(SfxProp::Selected(prop_type));
+                    StateStatus::Updated
+                },
+            ),
         };
     }
 

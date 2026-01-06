@@ -124,6 +124,36 @@ impl App {
         StateStatus::Updated
     }
 
+    pub fn is_possible_path(str: &str) -> bool {
+        #[cfg(windows)]
+        {
+            let mut chars = str.trim_matches('"').chars();
+
+            macro_rules! ensure_next_char {
+                ($expr:expr) => {
+                    match chars.next() {
+                        Some(ch) => {
+                            if $expr(ch) {
+                                return true;
+                            }
+                            false
+                        }
+                        None => return true,
+                    }
+                };
+            }
+
+            ensure_next_char!(|c: char| c.is_ascii_uppercase());
+            ensure_next_char!(|c: char| c == ':');
+            ensure_next_char!(|c: char| c == '/' || c == '\\');
+            true
+        }
+        #[cfg(unix)]
+        {
+            str.is_empty() || str.starts_with('/')
+        }
+    }
+
     pub fn validate_sfx_name(str: &str) -> bool {
         !str.is_empty()
     }

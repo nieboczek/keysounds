@@ -1,4 +1,7 @@
-use crate::app::{App, Mode, input::{SfxProp, SfxPropType}};
+use crate::app::{
+    App, Mode,
+    input::{SfxProp, SfxPropType},
+};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Stylize;
@@ -86,17 +89,23 @@ impl App {
         let sfx = &self.config.sfx[self.list_state.selected().unwrap() - 1];
 
         macro_rules! sfx_prop {
-            ($app:expr, $value:expr, $name:expr, $prop_type:ident, $validate_fn:expr) => {
-                if matches!($app.mode, Mode::SfxProp(SfxProp::Editing(SfxPropType::$prop_type))) {
+            ($app:expr, $value:expr, $name:expr, $prop_type:ident, $validate_fn:ident) => {
+                if matches!(
+                    $app.mode,
+                    Mode::SfxProp(SfxProp::Editing(SfxPropType::$prop_type))
+                ) {
                     let span = Span::raw(&$app.input);
-                    let span = if $validate_fn(&$app.input) {
+                    let span = if Self::$validate_fn(&$app.input) {
                         span.green()
                     } else {
                         span.red()
                     };
 
                     Line::from_iter([Span::raw(concat!("* ", $name, ": ")), span])
-                } else if matches!($app.mode, Mode::SfxProp(SfxProp::Selected(SfxPropType::$prop_type))) {
+                } else if matches!(
+                    $app.mode,
+                    Mode::SfxProp(SfxProp::Selected(SfxPropType::$prop_type))
+                ) {
                     text!(format!(concat!("* ", $name, ": {}"), $value))
                 } else {
                     text!(format!(concat!("  ", $name, ": {}"), $value))
@@ -104,34 +113,10 @@ impl App {
             };
         }
 
-        let name = sfx_prop!(
-            self,
-            sfx.name,
-            "Name",
-            Name,
-            Self::validate_sfx_name
-        );
-        let path = sfx_prop!(
-            self,
-            sfx.path,
-            "Path",
-            Path,
-            Self::validate_sfx_path
-        );
-        let volume = sfx_prop!(
-            self,
-            sfx.volume,
-            "Volume",
-            Volume,
-            Self::validate_sfx_volume
-        );
-        let skip_to = sfx_prop!(
-            self,
-            sfx.skip_to,
-            "Skip to",
-            SkipTo,
-            Self::validate_sfx_skip_to
-        );
+        let name = sfx_prop!(self, sfx.name, "Name", Name, validate_sfx_name);
+        let path = sfx_prop!(self, sfx.path, "Path", Path, validate_sfx_path);
+        let volume = sfx_prop!(self, sfx.volume, "Volume", Volume, validate_sfx_volume);
+        let skip_to = sfx_prop!(self, sfx.skip_to, "Skip to", SkipTo, validate_sfx_skip_to);
 
         Paragraph::new(Text::from_iter([name, path, volume, skip_to])).render(area, buf);
     }
