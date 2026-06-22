@@ -134,13 +134,13 @@ impl App {
         let Some(mic_device) = host.input_devices().unwrap().find(|device| {
             device
                 .description()
-                .is_ok_and(|desc| Self::device_desc_to_name(desc) == config.input_device)
+                .is_ok_and(|desc| desc.name() == config.input_device)
         }) else {
             panic!(
                 "Could not find input device in list:\n{:?}",
                 host.input_devices()
                     .unwrap()
-                    .map(|d| Self::device_desc_to_name(d.description().unwrap()))
+                    .map(|d| d.description().unwrap().name().to_string())
                     .collect::<Vec<_>>()
             );
         };
@@ -152,13 +152,13 @@ impl App {
         let Some(virtual_out_device) = host.output_devices().unwrap().find(|device| {
             device
                 .description()
-                .is_ok_and(|desc| Self::device_desc_to_name(desc) == config.virtual_output_device)
+                .is_ok_and(|desc| desc.name() == config.virtual_output_device)
         }) else {
             panic!(
                 "Could not find output device in list:\n{:?}",
                 host.output_devices()
                     .unwrap()
-                    .map(|d| Self::device_desc_to_name(d.description().unwrap()))
+                    .map(|d| d.description().unwrap().name().to_string())
                     .collect::<Vec<_>>()
             );
         };
