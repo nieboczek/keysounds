@@ -1,6 +1,4 @@
 # keysounds
-![](examples/showcase.gif)
-
 **keysounds** is a TUI app built in Rust that mixes audio files and your microphone into a virtual output device. It also enables you to filter your microphone to sound like you're in a church or whatever other place else you imagine.
 
 ## Features
