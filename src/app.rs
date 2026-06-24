@@ -153,12 +153,16 @@ impl App {
             device
                 .description()
                 .is_ok_and(|desc| desc.name() == config.virtual_output_device)
+                || device
+                    .id()
+                    .is_ok_and(|id| id.1 == config.virtual_output_device)
         }) else {
             panic!(
-                "Could not find output device in list:\n{:?}",
+                "Could not find output device '{}' in list:\n{:?}",
+                config.virtual_output_device,
                 host.output_devices()
                     .unwrap()
-                    .map(|d| d.description().unwrap().name().to_string())
+                    .map(|d| format!("{} ({})", d.description().unwrap().name(), d.id().unwrap()))
                     .collect::<Vec<_>>()
             );
         };
