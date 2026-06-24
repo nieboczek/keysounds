@@ -1,5 +1,5 @@
 use crate::app::{Action, App, Mode, StateStatus};
-use rand::Rng;
+use rand::RngExt;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::crossterm::event;
