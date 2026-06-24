@@ -10,9 +10,7 @@ serde = { version = "1", features = ["derive"] }
 toml = "1"
 cpal = "0.18"
 rand = "0.10"
-# not specifying symphonia-bundle-mp3 fails to compile
-symphonia-bundle-mp3 = "0.5.5"
-symphonia = { version = "0.5.5", features = ["all"] }
+symphonia = { version = "0.6", features = ["all"] }
 ringbuf = "0.5"
 
 [target.'cfg(windows)'.dependencies]

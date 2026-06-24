@@ -7,12 +7,11 @@ use std::{
 };
 use symphonia::{
     core::{
-        audio::{AudioBufferRef, SampleBuffer, SignalSpec},
-        codecs::{CODEC_TYPE_NULL, Decoder},
+        audio::AudioSpec,
+        codecs::{self, CodecParameters, audio::CODEC_ID_NULL_AUDIO},
         errors::Error,
-        formats::{FormatOptions, FormatReader, SeekMode, SeekTo},
+        formats::{FormatReader, SeekMode, SeekTo, TrackType, probe::Hint},
         io::{MediaSource, MediaSourceStream},
-        probe::Hint,
         units,
     },
     default::{get_codecs, get_probe},
@@ -21,12 +20,12 @@ use symphonia::{
 // TODO: replace unwraps in this file with actual error handling
 
 pub struct AudioDecoder {
-    decoder: Box<dyn Decoder>,
+    decoder: Box<dyn codecs::audio::AudioDecoder>,
     current_packet_offset: usize,
     format: Box<dyn FormatReader>,
     total_duration: Option<Duration>,
-    buffer: SampleBuffer<f32>,
-    spec: SignalSpec,
+    buffer: Vec<f32>,
+    spec: AudioSpec,
     counted_samples: usize,
     volume: f32,
     previous_mono_sample: Option<f32>,
@@ -82,7 +81,7 @@ impl AudioDecoder {
 
     fn read_raw_frame(&mut self) -> Option<[f32; 2]> {
         let l = self.next_raw_sample()?;
-        let r = if self.spec.channels.count() == 1 {
+        let r = if self.spec.channels().count() == 1 {
             l
         } else {
             self.next_raw_sample()?
@@ -92,7 +91,7 @@ impl AudioDecoder {
 
     fn skip_raw_frame(&mut self) -> Option<()> {
         self.next_raw_sample()?;
-        if self.spec.channels.count() == 2 {
+        if self.spec.channels().count() == 2 {
             self.next_raw_sample()?;
         }
         Some(())
@@ -106,12 +105,16 @@ impl AudioDecoder {
             target = total_duration;
         }
 
-        let active_channel = self.current_packet_offset % self.spec.channels.count();
+        let active_channel = self.current_packet_offset % self.spec.channels().count();
 
         let _ = self.format.seek(
             SeekMode::Coarse,
             SeekTo::Time {
-                time: target.into(),
+                time: symphonia::core::units::Time::try_new(
+                    target.as_secs() as i64,
+                    target.subsec_nanos(),
+                )
+                .unwrap(),
                 track_id: None,
             },
         );
@@ -141,7 +144,7 @@ impl AudioDecoder {
     }
 
     fn next_raw_sample(&mut self) -> Option<f32> {
-        if self.spec.channels.count() == 1 {
+        if self.spec.channels().count() == 1 {
             if let Some(previous) = self.previous_mono_sample.take() {
                 return Some(previous);
             }
@@ -149,7 +152,11 @@ impl AudioDecoder {
 
         if self.current_packet_offset >= self.buffer.len() {
             let decoded = loop {
-                let packet = self.format.next_packet().ok()?;
+                let packet = match self.format.next_packet() {
+                    Ok(Some(packet)) => packet,
+                    Ok(None) => return None,
+                    Err(_) => return None,
+                };
                 let decoded = match self.decoder.decode(&packet) {
                     Ok(decoded) => decoded,
                     Err(Error::DecodeError(_)) => continue,
@@ -161,24 +168,18 @@ impl AudioDecoder {
                 }
             };
 
-            decoded.spec().clone_into(&mut self.spec);
-            self.buffer = Self::get_buffer(decoded, &self.spec);
+            self.spec = decoded.spec().clone();
+            let mut buffer = Vec::new();
+            decoded.copy_to_vec_interleaved(&mut buffer);
+            self.buffer = buffer;
             self.current_packet_offset = 0;
         }
 
-        let sample = *self.buffer.samples().get(self.current_packet_offset)?;
+        let sample = *self.buffer.get(self.current_packet_offset)?;
         self.current_packet_offset += 1;
         self.previous_mono_sample = Some(sample);
 
         Some(sample)
-    }
-
-    #[inline]
-    fn get_buffer(decoded: AudioBufferRef, spec: &SignalSpec) -> SampleBuffer<f32> {
-        let duration = units::Duration::from(decoded.capacity() as u64);
-        let mut buffer = SampleBuffer::new(duration, *spec);
-        buffer.copy_interleaved_ref(decoded);
-        buffer
     }
 
     fn create_decoder(
@@ -201,25 +202,22 @@ impl AudioDecoder {
             Default::default(),
         );
 
-        let format_opts = FormatOptions {
-            enable_gapless: false,
-            ..Default::default()
-        };
-
-        let mut probe_result = get_probe()
-            .format(&hint, mss, &format_opts, &Default::default())
+        let mut format = get_probe()
+            .probe(&hint, mss, Default::default(), Default::default())
             .unwrap();
 
-        let default_track = match probe_result.format.default_track() {
+        let default_track = match format.default_track(TrackType::Audio) {
             Some(track) => track,
             None => panic!("no audio tracks found"),
         };
 
         let mut track_id = u32::MAX;
-        let track = match probe_result.format.tracks().iter().find(|track| {
-            if track.codec_params.codec != CODEC_TYPE_NULL {
-                track_id = track.id;
-                return true;
+        let track = match format.tracks().iter().find(|track| {
+            if let Some(CodecParameters::Audio(audio_params)) = &track.codec_params {
+                if audio_params.codec != CODEC_ID_NULL_AUDIO {
+                    track_id = track.id;
+                    return true;
+                }
             }
             false
         }) {
@@ -227,24 +225,40 @@ impl AudioDecoder {
             None => panic!(),
         };
 
+        let audio_params = track
+            .codec_params
+            .as_ref()
+            .and_then(|p| p.audio())
+            .expect("expected audio codec parameters");
+
         let mut decoder = get_codecs()
-            .make(&track.codec_params, &Default::default())
+            .make_audio_decoder(audio_params, &Default::default())
             .unwrap();
 
-        let total_duration = default_track
-            .codec_params
-            .time_base
-            .zip(default_track.codec_params.n_frames)
-            .map(|(time_base, n_frames)| time_base.calc_time(n_frames).into());
+        let total_duration =
+            default_track
+                .time_base
+                .zip(default_track.num_frames)
+                .map(|(time_base, n_frames)| {
+                    let time = time_base
+                        .calc_time(units::Timestamp::new(n_frames as i64))
+                        .expect("failed to calculate duration");
+                    let nanos = time.as_nanos();
+                    Duration::new(
+                        (nanos / 1_000_000_000) as u64,
+                        (nanos % 1_000_000_000) as u32,
+                    )
+                });
 
         let decoded = loop {
-            let packet = match probe_result.format.next_packet() {
-                Ok(packet) => packet,
+            let packet = match format.next_packet() {
+                Ok(Some(packet)) => packet,
+                Ok(None) => break decoder.last_decoded(),
                 Err(Error::IoError(_)) => break decoder.last_decoded(),
                 Err(e) => panic!("{e}"),
             };
 
-            if packet.track_id() != track_id {
+            if packet.track_id != track_id {
                 continue;
             }
 
@@ -255,15 +269,16 @@ impl AudioDecoder {
             }
         };
 
-        let spec = *decoded.spec();
-        let buffer = Self::get_buffer(decoded, &spec);
+        let spec = decoded.spec().clone();
+        let mut buffer = Vec::new();
+        decoded.copy_to_vec_interleaved(&mut buffer);
 
-        let step = spec.rate as f32 / target_sample_rate as f32;
+        let step = spec.rate() as f32 / target_sample_rate as f32;
 
         let mut decoder_obj = AudioDecoder {
             decoder,
             current_packet_offset: 0,
-            format: probe_result.format,
+            format,
             total_duration,
             buffer,
             spec,
