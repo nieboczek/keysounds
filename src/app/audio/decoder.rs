@@ -1,5 +1,3 @@
-use audioadapter_buffers::direct::InterleavedSlice;
-use rubato::{Async, Resampler, WindowFunction};
 use std::{
     ffi::OsStr,
     fs::File,
@@ -20,8 +18,6 @@ use symphonia::{
     default::{get_codecs, get_probe},
 };
 
-use crate::app::audio::{BLOCK_FRAMES, BLOCK_SAMPLES, CHANNELS};
-
 // TODO: replace unwraps in this file with actual error handling
 
 pub struct AudioDecoder {
@@ -35,9 +31,15 @@ pub struct AudioDecoder {
     volume: f32,
     previous_mono_sample: Option<f32>,
 
-    resampler: Option<Async<f32>>,
-    resampler_out: Vec<f32>,
-    resampler_pos: usize,
+    // linear resampling
+    target_sr: u32,
+    step: f32,
+    pos: f32,
+    a: [f32; 2],
+    b: [f32; 2],
+    a_idx: usize,
+    out_ch: usize,
+    out_pair: [f32; 2],
 }
 
 impl AudioDecoder {
@@ -51,21 +53,49 @@ impl AudioDecoder {
     }
 
     pub fn next_sample(&mut self) -> Option<f32> {
-        let sample = if self.resampler.is_some() {
-            if self.resampler_pos >= self.resampler_out.len() {
-                self.resample_batch();
-                self.resampler_pos = 0;
+        if self.out_ch == 0 {
+            let target = self.pos.floor() as usize;
+
+            while self.a_idx + 1 < target {
+                self.skip_raw_frame()?;
+                self.a_idx += 1;
             }
 
-            let sample = self.resampler_out[self.resampler_pos];
-            self.resampler_pos += 1;
-            sample
+            if self.a_idx < target {
+                self.a = self.b;
+                self.b = self.read_raw_frame()?;
+                self.a_idx += 1;
+            }
+
+            let frac = self.pos.fract();
+            for i in 0..2 {
+                self.out_pair[i] = self.a[i] + (self.b[i] - self.a[i]) * frac;
+            }
+            self.pos += self.step;
+        }
+
+        let sample = self.out_pair[self.out_ch];
+        self.out_ch = (self.out_ch + 1) & 1;
+        self.counted_samples += 1;
+        Some(sample * self.volume)
+    }
+
+    fn read_raw_frame(&mut self) -> Option<[f32; 2]> {
+        let l = self.next_raw_sample()?;
+        let r = if self.spec.channels.count() == 1 {
+            l
         } else {
             self.next_raw_sample()?
         };
+        Some([l, r])
+    }
 
-        self.counted_samples += 1;
-        Some(sample * self.volume)
+    fn skip_raw_frame(&mut self) -> Option<()> {
+        self.next_raw_sample()?;
+        if self.spec.channels.count() == 2 {
+            self.next_raw_sample()?;
+        }
+        Some(())
     }
 
     pub fn seek(&mut self, pos: Duration) {
@@ -78,7 +108,6 @@ impl AudioDecoder {
 
         let active_channel = self.current_packet_offset % self.spec.channels.count();
 
-        // we don't really care if it works or not
         let _ = self.format.seek(
             SeekMode::Coarse,
             SeekTo::Time {
@@ -89,6 +118,13 @@ impl AudioDecoder {
 
         self.decoder.reset();
         self.current_packet_offset = usize::MAX;
+        self.pos = 0.0;
+        self.a_idx = 0;
+        self.out_ch = 0;
+        self.previous_mono_sample = None;
+
+        self.a = self.read_raw_frame().unwrap_or([0.0; 2]);
+        self.b = self.read_raw_frame().unwrap_or([0.0; 2]);
 
         for _ in 0..active_channel {
             self.next_sample();
@@ -96,44 +132,12 @@ impl AudioDecoder {
     }
 
     pub fn get_pos(&self) -> Duration {
-        let secs =
-            self.counted_samples as f64 / self.spec.rate as f64 / self.spec.channels.count() as f64;
-
+        let secs = self.counted_samples as f64 / self.target_sr as f64 / 2.0;
         Duration::from_secs_f64(secs)
     }
 
     pub(super) fn total_duration(&self) -> Option<Duration> {
         self.total_duration
-    }
-
-    fn resample_batch(&mut self) -> Option<()> {
-        let mut input = [0.0f32; BLOCK_SAMPLES];
-
-        if self.spec.channels.count() == 1 {
-            for frame in 0..BLOCK_SAMPLES {
-                input[frame] = self.next_raw_sample()?;
-            }
-        } else {
-            for frame in 0..BLOCK_FRAMES {
-                for ch in 0..CHANNELS {
-                    // TODO: instead of Try (?), operate on lower sample count
-                    // TODO: or even precalculate some count at audio decoder creation
-                    input[frame * CHANNELS + ch] = self.next_raw_sample()?;
-                }
-            }
-        }
-
-        let output_frames = self.resampler_out.len() / 2;
-        let input = InterleavedSlice::new(&input, CHANNELS, BLOCK_FRAMES).unwrap();
-        let mut output =
-            InterleavedSlice::new_mut(&mut self.resampler_out, CHANNELS, output_frames).unwrap();
-
-        self.resampler
-            .as_mut()?
-            .process_into_buffer(&input, &mut output, None)
-            .unwrap();
-
-        Some(())
     }
 
     fn next_raw_sample(&mut self) -> Option<f32> {
@@ -254,42 +258,9 @@ impl AudioDecoder {
         let spec = *decoded.spec();
         let buffer = Self::get_buffer(decoded, &spec);
 
-        let resampler = if target_sample_rate != spec.rate {
-            const WINDOW_FUNCTION: WindowFunction = WindowFunction::BlackmanHarris2;
-            const SINC_LEN: usize = 256;
-            const OVERSAMPLING_FACTOR: usize = 128;
+        let step = spec.rate as f32 / target_sample_rate as f32;
 
-            let ratio = target_sample_rate as f64 / spec.rate as f64;
-            let params = rubato::SincInterpolationParameters {
-                sinc_len: SINC_LEN,
-                f_cutoff: rubato::calculate_cutoff(SINC_LEN, WINDOW_FUNCTION),
-                interpolation: rubato::SincInterpolationType::Quadratic,
-                oversampling_factor: OVERSAMPLING_FACTOR,
-                window: WINDOW_FUNCTION,
-            };
-
-            Some(
-                Async::new_sinc(
-                    ratio,
-                    1.0,
-                    &params,
-                    BLOCK_FRAMES,
-                    CHANNELS,
-                    rubato::FixedAsync::Input,
-                )
-                .unwrap(),
-            )
-        } else {
-            None
-        };
-
-        let capacity = if let Some(resampler) = &resampler {
-            resampler.output_frames_max() * 2
-        } else {
-            0
-        };
-
-        AudioDecoder {
+        let mut decoder_obj = AudioDecoder {
             decoder,
             current_packet_offset: 0,
             format: probe_result.format,
@@ -299,10 +270,20 @@ impl AudioDecoder {
             counted_samples: 0,
             volume,
             previous_mono_sample: None,
-            resampler,
-            resampler_out: vec![0.0f32; capacity],
-            resampler_pos: 0,
-        }
+            target_sr: target_sample_rate,
+            step,
+            pos: 0.0,
+            a: [0.0; 2],
+            b: [0.0; 2],
+            a_idx: 0,
+            out_ch: 0,
+            out_pair: [0.0; 2],
+        };
+
+        decoder_obj.a = decoder_obj.read_raw_frame().unwrap_or([0.0; 2]);
+        decoder_obj.b = decoder_obj.read_raw_frame().unwrap_or([0.0; 2]);
+
+        decoder_obj
     }
 }
 

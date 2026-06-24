@@ -50,6 +50,14 @@ impl App {
         );
     }
 
+    fn try_config_48khz(device: &Device) -> Option<cpal::SupportedStreamConfig> {
+        device
+            .supported_output_configs()
+            .ok()?
+            .find(|cfg| cfg.channels() >= 2 && cfg.min_sample_rate() <= 48_000 && cfg.max_sample_rate() >= 48_000)
+            .map(|cfg| cfg.with_sample_rate(48_000))
+    }
+
     #[inline]
     pub(super) fn create_streams(
         mic_device: &Device,
@@ -58,8 +66,10 @@ impl App {
         decoder: Arc<Mutex<Option<AudioDecoder>>>,
     ) -> (Arc<Mutex<FilterChain>>, u32, KeepAlive) {
         let mic_config = mic_device.default_input_config().unwrap();
-        let out_config = out_device.default_output_config().unwrap();
-        let virtual_out_config = virtual_out_device.default_output_config().unwrap();
+        let out_config = Self::try_config_48khz(out_device)
+            .unwrap_or_else(|| out_device.default_output_config().unwrap());
+        let virtual_out_config = Self::try_config_48khz(virtual_out_device)
+            .unwrap_or_else(|| virtual_out_device.default_output_config().unwrap());
 
         let sample_rate = out_config.sample_rate();
         let filter_chain = Arc::new(Mutex::new(FilterChain::new(sample_rate)));
