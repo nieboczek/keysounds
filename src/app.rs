@@ -155,7 +155,7 @@ impl App {
                 .is_ok_and(|desc| desc.name() == config.virtual_output_device)
                 || device
                     .id()
-                    .is_ok_and(|id| id.1 == config.virtual_output_device)
+                    .is_ok_and(|id| id.id() == config.virtual_output_device)
         }) else {
             panic!(
                 "Could not find output device '{}' in list:\n{:?}",

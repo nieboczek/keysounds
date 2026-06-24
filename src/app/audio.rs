@@ -54,7 +54,11 @@ impl App {
         device
             .supported_output_configs()
             .ok()?
-            .find(|cfg| cfg.channels() >= 2 && cfg.min_sample_rate() <= 48_000 && cfg.max_sample_rate() >= 48_000)
+            .find(|cfg| {
+                cfg.channels() >= 2
+                    && cfg.min_sample_rate() <= 48_000
+                    && cfg.max_sample_rate() >= 48_000
+            })
             .map(|cfg| cfg.with_sample_rate(48_000))
     }
 
@@ -84,7 +88,7 @@ impl App {
 
         let mic_stream = mic_device
             .build_input_stream(
-                &mic_config.into(),
+                mic_config.into(),
                 move |data: &[f32], _| {
                     mic_prod.push_slice(data);
                 },
@@ -95,7 +99,7 @@ impl App {
 
         let out_stream = out_device
             .build_output_stream(
-                &out_config.into(),
+                out_config.into(),
                 move |data: &mut [f32], _| {
                     decoder_cons.pop_slice(data);
                 },
@@ -107,7 +111,7 @@ impl App {
         let filter_chain_too = Arc::clone(&filter_chain);
         let virtual_out_stream = virtual_out_device
             .build_output_stream(
-                &virtual_out_config.into(),
+                virtual_out_config.into(),
                 move |data: &mut [f32], _| {
                     let mut mic_iter = mic_cons.pop_iter();
                     let mut decoder_iter = decoder_too_cons.pop_iter();
