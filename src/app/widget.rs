@@ -233,19 +233,25 @@ impl App {
         // Search: what
         // Matches: what, what is love, what the hell
 
-        let matches = self
-            .config
-            .sfx
-            .iter()
-            .filter_map(|sfx| {
-                sfx.name
-                    .to_ascii_lowercase()
-                    .contains(&self.input.to_ascii_lowercase())
-                    .then_some(&sfx.name)
-            })
-            .map(String::as_str)
-            .collect::<Vec<_>>()
-            .join(", ");
+        let input = self.input.to_ascii_lowercase();
+        let matching = self.config.sfx.iter().filter(|sfx| {
+            sfx.name.to_ascii_lowercase().contains(&input)
+        });
+        let mut matches: Vec<&str> = matching
+            .filter(|sfx| sfx.name.to_ascii_lowercase() == input)
+            .map(|sfx| sfx.name.as_str())
+            .collect();
+        matches.extend(
+            self.config
+                .sfx
+                .iter()
+                .filter(|sfx| {
+                    let name = sfx.name.to_ascii_lowercase();
+                    name.contains(&input) && name != input
+                })
+                .map(|sfx| sfx.name.as_str()),
+        );
+        let matches = matches.join(", ");
 
         Paragraph::new(Text::from_iter([
             Line::from_iter([Span::raw("Search: ").bold(), Span::raw(&self.input)]),

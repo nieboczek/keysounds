@@ -213,11 +213,17 @@ impl App {
                     }
                 }
                 KeyCode::Enter => {
-                    let option = self.config.sfx.iter().find(|sfx| {
-                        sfx.name
-                            .to_ascii_lowercase()
-                            .contains(&self.input.to_ascii_lowercase())
-                    });
+                    let input = self.input.to_ascii_lowercase();
+                    let option = self
+                        .config
+                        .sfx
+                        .iter()
+                        .find(|sfx| sfx.name.to_ascii_lowercase() == input)
+                        .or_else(|| {
+                            self.config.sfx.iter().find(|sfx| {
+                                sfx.name.to_ascii_lowercase().contains(&input)
+                            })
+                        });
 
                     if let Some(sfx) = option {
                         self.play_sfx(sfx.clone(), false);
