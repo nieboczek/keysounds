@@ -13,10 +13,10 @@ impl Shittify {
 
 impl SampleTransformer for Shittify {
     fn filter(&mut self, sample: f32) -> f32 {
-        // LOSE 16 BITS
+        // DROP 16 BITS
         let sample_i16 = (sample * i16::MAX as f32) as i16;
 
-        // BOOST THE AUDIO 12 TIMES and then CLIP IT A LOT
+        // BOOST THE AUDIO strength TIMES and then CLIP IT A LOT
         let distorted = (sample_i16 as i32 * self.strength).clamp(-self.cutoff, self.cutoff) as i16;
 
         // QUIETER AUDIO 2 TIMES and cast to f32
