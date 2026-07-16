@@ -6,12 +6,16 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AudioFilter {
-    #[serde(rename = "boost_bass")]
-    BoostBass { gain: f32, cutoff: f32 },
-    #[serde(rename = "shittify")]
-    Shittify { strength: i32, cutoff: i32 },
-    #[serde(rename = "reverb")]
+    BoostBass {
+        gain: f32,
+        cutoff: f32,
+    },
+    Shittify {
+        strength: i32,
+        cutoff: i32,
+    },
     Reverb {
         room_size: f32,
         damping: f32,
