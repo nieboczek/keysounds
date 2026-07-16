@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 64 64"
+     width="64"
+     height="64"
+     fill="none"
+     stroke="#000"
+     stroke-width="4"
+     stroke-linecap="round"
+     stroke-linejoin="round">
+
+    <!-- Speaker -->
+    <polygon fill="#000"
+             points="12,26 24,26 36,16 36,48 24,38 12,38"/>
+
+    <!-- Sound waves -->
+    <path d="M43 24 Q50 32 43 40"/>
+    <path d="M48 18 Q60 32 48 46"/>
+    <path d="M53 12 Q70 32 53 52"/>
+
+</svg>

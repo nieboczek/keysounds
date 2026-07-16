@@ -134,9 +134,9 @@ impl AudioDecoder {
         }
     }
 
-    pub fn get_pos(&self) -> Duration {
+    pub fn pos_nanos(&self) -> u64 {
         let secs = self.counted_samples as f64 / self.target_sr as f64 / 2.0;
-        Duration::from_secs_f64(secs)
+        (secs * 1_000_000_000.0) as u64
     }
 
     pub(super) fn total_duration(&self) -> Option<Duration> {

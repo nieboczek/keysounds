@@ -3,7 +3,10 @@ use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{Device, Stream};
 use ringbuf::HeapRb;
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 use std::thread;
 use std::time::Duration;
 
@@ -27,8 +30,7 @@ impl App {
         let decoder = AudioDecoder::new(&sfx.path, self.target_sample_rate, sfx.volume);
         let duration = decoder.total_duration().unwrap_or_default();
 
-        let mut guard = self.decoder.lock().unwrap();
-        *guard = Some(decoder);
+        *self.decoder.lock().unwrap() = Some(decoder);
 
         self.sfx_data = Some(SfxData {
             duration,
@@ -37,12 +39,11 @@ impl App {
         });
     }
 
-    #[inline]
-    pub(super) fn play_sfx_from_input(&mut self) {
+    pub(super) fn play_sfx_from_path(&mut self, path: String) {
         self.play_sfx(
             Sfx {
                 name: "SFX from path".to_string(),
-                path: self.input.trim_matches('"').to_string(),
+                path,
                 volume: 1.0,
             },
             false,
@@ -67,6 +68,7 @@ impl App {
         out_device: &Device,
         virtual_out_device: &Device,
         decoder: Arc<Mutex<Option<AudioDecoder>>>,
+        decoder_pos: Arc<AtomicU64>,
     ) -> (Arc<Mutex<FilterChain>>, u32, KeepAlive) {
         let mic_config = mic_device.default_input_config().unwrap();
         let out_config = Self::try_config_48khz(out_device)
@@ -136,6 +138,8 @@ impl App {
 
                 let mut guard = decoder.lock().unwrap();
                 let Some(decoder) = guard.as_mut() else {
+                    std::mem::drop(guard);
+
                     for i in 0..BLOCK_SAMPLES {
                         buf[i] = 0.0;
                     }
@@ -160,9 +164,12 @@ impl App {
                     }
                 }
 
+                decoder_pos.store(decoder.pos_nanos(), Ordering::Relaxed);
+
                 if eof {
                     // delete decoder
                     *guard = None;
+                    decoder_pos.store(0, Ordering::Relaxed);
                 }
                 std::mem::drop(guard);
 

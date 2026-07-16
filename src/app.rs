@@ -3,37 +3,49 @@ use crate::app::{
     config::{AudioFilter, Config, Keybind},
 };
 use cpal::traits::{DeviceTrait, HostTrait};
+use iced::widget::svg;
 use rand::rngs::ThreadRng;
-use ratatui::widgets::ListState;
 use serde::{Deserialize, Serialize};
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicU64},
     time::{Duration, Instant},
 };
 
 pub mod audio;
 pub mod config;
-pub mod imp;
-pub mod input;
-pub mod widget;
-pub use input::Mode;
+pub mod gui;
 
 pub struct App {
     _keep_alive: audio::KeepAlive,
     action_channel: Arc<Mutex<Action>>,
-    list_state: ListState,
     random_sfx_triggering: bool,
     rst_deadline: Instant,
-    mode: Mode,
     sfx_data: Option<SfxData>,
     target_sample_rate: u32,
     decoder: Arc<Mutex<Option<AudioDecoder>>>,
-    input: String,
+    decoder_pos: Arc<AtomicU64>,
     config: Config,
     rng: ThreadRng,
     filter_chain: Arc<Mutex<FilterChain>>,
-    #[cfg(feature = "render_call_counter")]
-    render_call_counter: u32,
+
+    // GUI
+    svgs: Svgs,
+    page: Page,
+    search: String,
+    selected_sfx: Option<usize>,
+    editing_sfx: Option<usize>,
+    settings_open: bool,
+}
+
+pub struct Svgs {
+    stop: svg::Handle,
+}
+
+#[derive(PartialEq, Eq)]
+pub enum Page {
+    Sounds,
+    Microphone,
+    RandomSfx,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -70,40 +82,6 @@ pub enum Action {
     None,
 }
 
-#[derive(PartialEq)]
-enum StateStatus {
-    Unaffected,
-    IdleRender,
-    Updated,
-    IgnoreNextKeyPress,
-    Quit,
-}
-
-impl std::ops::BitOrAssign for StateStatus {
-    /// Updates the state without overwriting more important statuses like `StateStatus::Quit`.
-    fn bitor_assign(&mut self, rhs: Self) {
-        match rhs {
-            StateStatus::Unaffected => {}
-            StateStatus::IdleRender => {
-                if *self == StateStatus::Unaffected {
-                    *self = StateStatus::IdleRender;
-                }
-            }
-            StateStatus::Updated => {
-                if matches!(self, StateStatus::Unaffected | StateStatus::IdleRender) {
-                    *self = StateStatus::Updated;
-                }
-            }
-            StateStatus::IgnoreNextKeyPress => {
-                if *self != StateStatus::Quit {
-                    *self = StateStatus::IgnoreNextKeyPress;
-                }
-            }
-            StateStatus::Quit => *self = StateStatus::Quit,
-        }
-    }
-}
-
 impl App {
     pub fn device_desc_to_name(desc: cpal::DeviceDescription) -> String {
         format!("{} ({})", desc.name(), desc.driver().unwrap())
@@ -115,6 +93,7 @@ impl App {
         *action_channel.lock().unwrap() = Action::SetKeybinds(config.keybinds.clone());
 
         let decoder = Arc::new(Mutex::new(None));
+        let decoder_pos = Arc::new(AtomicU64::new(0));
         let host = cpal::default_host();
 
         let Some(mic_device) = host.input_devices().unwrap().find(|device| {
@@ -158,24 +137,30 @@ impl App {
             &out_device,
             &virtual_out_device,
             Arc::clone(&decoder),
+            Arc::clone(&decoder_pos),
         );
 
         App {
             _keep_alive: keep_alive,
             action_channel,
-            list_state: ListState::default().with_selected(Some(0)),
             random_sfx_triggering: false,
             rst_deadline: Instant::now(),
-            mode: Mode::Normal,
             sfx_data: None,
             target_sample_rate: sample_rate,
             decoder,
-            input: String::new(),
+            decoder_pos,
             config,
             rng: rand::rng(),
             filter_chain,
-            #[cfg(feature = "render_call_counter")]
-            render_call_counter: 0,
+
+            svgs: Svgs {
+                stop: svg::Handle::from_memory(include_bytes!("../assets/stop.svg")),
+            },
+            page: Page::Sounds,
+            search: String::new(),
+            selected_sfx: None,
+            editing_sfx: None,
+            settings_open: false,
         }
     }
 }
