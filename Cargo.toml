@@ -12,6 +12,7 @@ cpal = "0.18"
 rand = "0.10"
 symphonia = { version = "0.6", features = ["all"] }
 ringbuf = "0.5"
+dirs-next = "2"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.9"

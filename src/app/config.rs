@@ -1,9 +1,11 @@
 use crate::app::{Action, App, Sfx};
 use rdev::Key;
 use serde::{Deserialize, Serialize};
-use std::fs::{read_to_string, write};
-use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::{
+    fs::{read_to_string, write},
+    io::ErrorKind,
+    path::PathBuf,
+};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -66,7 +68,7 @@ impl App {
     }
 
     pub fn load_config_result() -> Config {
-        let contents = match read_to_string(Self::get_config_file()) {
+        let contents = match read_to_string(Self::config_file()) {
             Ok(contents) => contents,
             Err(err) => {
                 if err.kind() != ErrorKind::NotFound {
@@ -95,14 +97,12 @@ impl App {
 
     pub fn save_config_result(config: &Config) {
         let contents = toml::to_string(config).unwrap();
-        write(Self::get_config_file(), contents).unwrap();
+        write(Self::config_file(), contents).unwrap();
     }
 
-    fn get_config_file() -> PathBuf {
-        std::env::current_exe()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("config.toml")
+    fn config_file() -> PathBuf {
+        let mut dir = dirs_next::config_dir().unwrap();
+        dir.push("keysounds/config.toml");
+        return dir;
     }
 }
