@@ -95,12 +95,14 @@ impl App {
         let old = std::mem::replace(&mut *guard, Action::None);
         match old {
             Action::None => return StateStatus::Unaffected,
+            Action::SetKeybinds(_) => {
+                *guard = old;
+                return StateStatus::Unaffected;
+            }
             Action::SearchAndPlay => {
                 Self::focus_console();
                 self.input.clear();
                 self.mode = Mode::SearchSfx;
-
-                *guard = Action::None;
                 return StateStatus::IgnoreNextKeyPress;
             }
             Action::StopSfx => {
@@ -109,10 +111,6 @@ impl App {
             }
             Action::FilterPreset(filters) => {
                 self.filter_chain.lock().unwrap().sync_with_vector(filters);
-            }
-            Action::SetKeybinds(_) => {
-                *guard = old;
-                return StateStatus::Unaffected;
             }
         }
         StateStatus::Updated
