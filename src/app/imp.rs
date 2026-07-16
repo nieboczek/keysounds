@@ -103,12 +103,6 @@ impl App {
                 *guard = Action::None;
                 return StateStatus::IgnoreNextKeyPress;
             }
-            Action::SkipToPart => {
-                if let Some(data) = &mut self.sfx_data {
-                    let dur = Duration::from_secs_f32(data.sfx.skip_to);
-                    self.decoder.lock().unwrap().as_mut().unwrap().seek(dur);
-                }
-            }
             Action::StopSfx => {
                 *self.decoder.lock().unwrap() = None;
                 self.sfx_data = None;
@@ -163,10 +157,6 @@ impl App {
     }
 
     pub fn validate_sfx_volume(str: &str) -> bool {
-        str.parse::<f32>().is_ok_and(|x| x >= 0.0)
-    }
-
-    pub fn validate_sfx_skip_to(str: &str) -> bool {
         str.parse::<f32>().is_ok_and(|x| x >= 0.0)
     }
 

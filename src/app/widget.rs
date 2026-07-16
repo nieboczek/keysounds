@@ -116,9 +116,8 @@ impl App {
         let name = sfx_prop!(self, sfx.name, "Name", Name, validate_sfx_name);
         let path = sfx_prop!(self, sfx.path, "Path", Path, validate_sfx_path);
         let volume = sfx_prop!(self, sfx.volume, "Volume", Volume, validate_sfx_volume);
-        let skip_to = sfx_prop!(self, sfx.skip_to, "Skip to", SkipTo, validate_sfx_skip_to);
 
-        Paragraph::new(Text::from_iter([name, path, volume, skip_to])).render(area, buf);
+        Paragraph::new(Text::from_iter([name, path, volume])).render(area, buf);
     }
 
     #[inline]
@@ -234,9 +233,11 @@ impl App {
         // Matches: what, what is love, what the hell
 
         let input = self.input.to_ascii_lowercase();
-        let matching = self.config.sfx.iter().filter(|sfx| {
-            sfx.name.to_ascii_lowercase().contains(&input)
-        });
+        let matching = self
+            .config
+            .sfx
+            .iter()
+            .filter(|sfx| sfx.name.to_ascii_lowercase().contains(&input));
         let mut matches: Vec<&str> = matching
             .filter(|sfx| sfx.name.to_ascii_lowercase() == input)
             .map(|sfx| sfx.name.as_str())

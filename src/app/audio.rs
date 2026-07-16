@@ -44,7 +44,6 @@ impl App {
                 name: "SFX from path".to_string(),
                 path: self.input.trim_matches('"').to_string(),
                 volume: 1.0,
-                skip_to: 0.0,
             },
             false,
         );

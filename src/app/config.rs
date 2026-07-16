@@ -77,7 +77,6 @@ impl App {
                     rst_sfx_list: Vec::new(),
                     keybinds: vec![
                         Keybind::default_keybind(Key::KeyT, Action::SearchAndPlay),
-                        Keybind::default_keybind(Key::KeyY, Action::SkipToPart),
                         Keybind::default_keybind(Key::KeyS, Action::StopSfx),
                     ],
                     sfx: Vec::new(),

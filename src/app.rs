@@ -42,8 +42,6 @@ pub struct Sfx {
     path: String,
     #[serde(default = "default_volume", skip_serializing_if = "is_default_volume")]
     volume: f32,
-    #[serde(default, skip_serializing_if = "is_skip_to_default")]
-    skip_to: f32,
 }
 
 #[inline]
@@ -56,11 +54,6 @@ const fn is_default_volume(volume: &f32) -> bool {
     *volume == 1.0
 }
 
-#[inline]
-const fn is_skip_to_default(skip_to: &f32) -> bool {
-    *skip_to == 0.0
-}
-
 struct SfxData {
     randomly_triggered: bool,
     duration: Duration,
@@ -68,19 +61,12 @@ struct SfxData {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Action {
-    #[serde(rename = "search_and_play")]
     SearchAndPlay,
-    #[serde(rename = "skip_to_part")]
-    SkipToPart,
-    #[serde(rename = "stop_sfx")]
     StopSfx,
-    #[serde(rename = "filter_preset")]
     FilterPreset(Vec<AudioFilter>),
-
-    #[serde(rename = "set_keybinds")]
     SetKeybinds(Vec<Keybind>),
-    #[serde(rename = "none")]
     None,
 }
 

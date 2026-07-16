@@ -21,7 +21,6 @@ pub enum SfxPropType {
     Name,
     Path,
     Volume,
-    SkipTo,
 }
 
 impl SfxPropType {
@@ -31,7 +30,6 @@ impl SfxPropType {
             Self::Name => None,
             Self::Path => Some(Self::Name),
             Self::Volume => Some(Self::Path),
-            Self::SkipTo => Some(Self::Volume),
         }
     }
 
@@ -40,8 +38,7 @@ impl SfxPropType {
         match self {
             Self::Name => Some(Self::Path),
             Self::Path => Some(Self::Volume),
-            Self::Volume => Some(Self::SkipTo),
-            Self::SkipTo => None,
+            Self::Volume => None,
         }
     }
 
@@ -51,7 +48,6 @@ impl SfxPropType {
             Self::Name => sfx.name.to_string(),
             Self::Path => sfx.path.to_string(),
             Self::Volume => sfx.volume.to_string(),
-            Self::SkipTo => sfx.skip_to.to_string(),
         }
     }
 
@@ -63,11 +59,6 @@ impl SfxPropType {
             Self::Volume => {
                 if let Ok(volume) = input.parse::<f32>() {
                     sfx.volume = volume;
-                }
-            }
-            Self::SkipTo => {
-                if let Ok(skip_to) = input.parse::<f32>() {
-                    sfx.skip_to = skip_to;
                 }
             }
         }
@@ -220,9 +211,10 @@ impl App {
                         .iter()
                         .find(|sfx| sfx.name.to_ascii_lowercase() == input)
                         .or_else(|| {
-                            self.config.sfx.iter().find(|sfx| {
-                                sfx.name.to_ascii_lowercase().contains(&input)
-                            })
+                            self.config
+                                .sfx
+                                .iter()
+                                .find(|sfx| sfx.name.to_ascii_lowercase().contains(&input))
                         });
 
                     if let Some(sfx) = option {
@@ -311,7 +303,6 @@ impl App {
                                     name: String::new(),
                                     path: String::new(),
                                     volume: 1.0,
-                                    skip_to: 0.0,
                                 },
                             );
                             a.list_state.select(Some(1));
