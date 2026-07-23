@@ -25,6 +25,10 @@ impl App {
             Message::Tick => {
                 self.trigger_sfx_randomly();
                 self.handle_actions();
+
+                if self.decoder_pos.load(Ordering::Relaxed) == u64::MAX {
+                    self.sfx_data = None;
+                }
             }
             Message::PlaySfx(index) => {
                 if let Some(sfx) = self.config.sfx.get(index) {

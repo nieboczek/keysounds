@@ -31,7 +31,7 @@ impl App {
         let duration = decoder.total_duration().unwrap_or_default();
 
         *self.decoder.lock().unwrap() = Some(decoder);
-
+        self.decoder_pos.store(0, Ordering::Relaxed);
         self.sfx_data = Some(SfxData {
             duration,
             sfx,
@@ -169,7 +169,7 @@ impl App {
                 if eof {
                     // delete decoder
                     *guard = None;
-                    decoder_pos.store(0, Ordering::Relaxed);
+                    decoder_pos.store(u64::MAX, Ordering::Relaxed);
                 }
                 std::mem::drop(guard);
 

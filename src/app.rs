@@ -93,7 +93,7 @@ impl App {
         *action_channel.lock().unwrap() = Action::SetKeybinds(config.keybinds.clone());
 
         let decoder = Arc::new(Mutex::new(None));
-        let decoder_pos = Arc::new(AtomicU64::new(0));
+        let decoder_pos = Arc::new(AtomicU64::new(u64::MAX));
         let host = cpal::default_host();
 
         let Some(mic_device) = host.input_devices().unwrap().find(|device| {
