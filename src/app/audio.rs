@@ -118,8 +118,8 @@ impl App {
                     let mut decoder_iter = decoder_too_cons.pop_iter();
 
                     let mut chain = filter_chain_too.lock().unwrap();
-                    for i in 0..data.len() {
-                        data[i] = chain.filter(mic_iter.next().unwrap_or_default())
+                    for item in data {
+                        *item = chain.filter(mic_iter.next().unwrap_or_default())
                             + decoder_iter.next().unwrap_or_default();
                     }
                 },
@@ -140,8 +140,8 @@ impl App {
                 let Some(decoder) = guard.as_mut() else {
                     std::mem::drop(guard);
 
-                    for i in 0..BLOCK_SAMPLES {
-                        buf[i] = 0.0;
+                    for item in buf.iter_mut() {
+                        *item = 0.0;
                     }
 
                     decoder_prod.push_slice(&buf);

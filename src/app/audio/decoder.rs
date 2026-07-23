@@ -144,10 +144,10 @@ impl AudioDecoder {
     }
 
     fn next_raw_sample(&mut self) -> Option<f32> {
-        if self.spec.channels().count() == 1 {
-            if let Some(previous) = self.previous_mono_sample.take() {
-                return Some(previous);
-            }
+        if self.spec.channels().count() == 1
+            && let Some(previous) = self.previous_mono_sample.take()
+        {
+            return Some(previous);
         }
 
         if self.current_packet_offset >= self.buffer.len() {
@@ -213,11 +213,11 @@ impl AudioDecoder {
 
         let mut track_id = u32::MAX;
         let track = match format.tracks().iter().find(|track| {
-            if let Some(CodecParameters::Audio(audio_params)) = &track.codec_params {
-                if audio_params.codec != CODEC_ID_NULL_AUDIO {
-                    track_id = track.id;
-                    return true;
-                }
+            if let Some(CodecParameters::Audio(audio_params)) = &track.codec_params
+                && audio_params.codec != CODEC_ID_NULL_AUDIO
+            {
+                track_id = track.id;
+                return true;
             }
             false
         }) {

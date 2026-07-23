@@ -103,6 +103,6 @@ impl App {
     fn config_file() -> PathBuf {
         let mut dir = dirs_next::config_dir().unwrap();
         dir.push("keysounds/config.toml");
-        return dir;
+        dir
     }
 }
