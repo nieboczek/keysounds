@@ -3,7 +3,7 @@ use crate::app::{
     theme::{self, Theme},
 };
 use iced::{
-    Background, Fill, Subscription, Task, time,
+    Fill, Subscription, Task, time,
     widget::{
         Column, Row, button, column, container, progress_bar, row, scrollable, svg, text,
         text_input,
@@ -94,51 +94,23 @@ impl App {
         fn tab(page_name: &str, page: Page, current_page: Page) -> Element<'_> {
             button(text(page_name))
                 .style(move |theme: &Theme, status| button::Style {
-                    background: Some(Background::Color(if current_page == page {
-                        theme.tab_active
-                    } else if status == button::Status::Active {
-                        theme.tab
-                    } else {
-                        theme.tab_hovered
-                    })),
-                    text_color: theme.text,
+                    background: match status {
+                        _ if current_page == page => theme.tab_active.into(),
+                        button::Status::Active | button::Status::Disabled => theme.tab.into(),
+                        _ => theme.tab_hovered.into(),
+                    },
+                    text_color: theme.text.into(),
                     ..Default::default()
                 })
                 .on_press(Message::ChangePage(page))
                 .into()
         }
 
-        let header_header = row([
+        let tabs = row([
             tab("Sounds", Page::Sounds, self.page),
             tab("Filter Chain", Page::FilterChain, self.page),
             tab("Sound Triggering", Page::SoundTriggering, self.page),
         ]);
-
-        let header = column([
-            text(heading).size(20).into(),
-            row([
-                container(text(Self::format_time_left(duration.saturating_sub(pos))).size(14))
-                    .style(theme::container_opaque)
-                    .center_y(32)
-                    .padding([4, 8])
-                    .into(),
-                button(svg(self.svgs.stop.clone()).style(|_, _| svg::Style {
-                    color: Some(iced::Color::WHITE),
-                }))
-                .padding(0)
-                .height(32)
-                .width(32)
-                .on_press(Message::StopSound)
-                .into(),
-                progress_bar(0.0..=1.0, progress)
-                    .length(Fill)
-                    .girth(32)
-                    .into(),
-            ])
-            .spacing(4)
-            .into(),
-        ])
-        .spacing(4);
 
         let search = {
             text_input("Search Sounds...", &self.search)
@@ -175,18 +147,56 @@ impl App {
             scrollable(content).into()
         };
 
-        container(
-            column([
-                header_header.into(),
-                header.into(),
-                search.into(),
-                sound_list,
-            ])
-            .spacing(8)
-            .padding(8),
+        let base = container(
+            column([tabs.into(), search.into(), sound_list])
+                .spacing(8)
+                .padding(8),
         )
         .width(Fill)
-        .height(Fill)
+        .height(Fill);
+
+        overlay::Overlay::new(
+            base,
+            move || {
+                container(
+                    container(
+                        column([
+                            text(heading).size(20).into(),
+                            row([
+                                container(
+                                    text(Self::format_time_left(duration.saturating_sub(pos)))
+                                        .size(14),
+                                )
+                                .style(theme::container_opaque)
+                                .center_y(32)
+                                .padding([4, 8])
+                                .into(),
+                                button(svg(self.svgs.stop.clone()).style(|_, _| svg::Style {
+                                    color: Some(iced::Color::WHITE),
+                                }))
+                                .padding(0)
+                                .height(32)
+                                .width(32)
+                                .on_press(Message::StopSound)
+                                .into(),
+                                progress_bar(0.0..=1.0, progress)
+                                    .length(Fill)
+                                    .girth(32)
+                                    .into(),
+                            ])
+                            .spacing(4)
+                            .into(),
+                        ])
+                        .spacing(4),
+                    )
+                    .padding(12)
+                    .style(theme::container_overlay),
+                )
+                .padding(8)
+                .into()
+            },
+            self.playing_sound.is_some(),
+        )
         .into()
     }
 

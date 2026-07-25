@@ -1,26 +1,61 @@
-use iced::{Background, Border, Color, Shadow};
+use iced::Shadow;
+use serde::Deserialize;
 
-#[derive(Clone)]
+mod border;
+mod color_proxy;
+
+pub use border::Border;
+pub use color_proxy::Color;
+
+const MISSING_COLOR: Color = Color::from_rgb(1.0, 0.0, 1.0);
+
+#[derive(Deserialize, Clone)]
 pub struct Theme {
     pub bg: Color,
     pub text: Color,
+    pub icon: Color,
+    pub search: Search,
     pub tab: Color,
     pub tab_hovered: Color,
     pub tab_active: Color,
     pub sound_bg: Color,
-    pub hovered_sound_bg: Color,
+    pub sound_bg_hovered: Color,
+    pub overlay_bg: Color,
+    pub overlay_border: Border,
+}
+
+#[derive(Deserialize, Clone, Copy)]
+pub struct Search {
+    pub bg: Color,
+    pub text: Color,
+    pub placeholder: Color,
+    pub selection: Color,
+    pub border: Border,
 }
 
 impl Default for Theme {
     fn default() -> Self {
+        let bg = Color::from_rgb(0.2, 0.2, 0.2);
+        let text = Color::from_rgb(0.95, 0.95, 0.95);
+
         Self {
-            bg: Color::from_rgb(0.2, 0.2, 0.2),
-            text: Color::from_rgb(0.95, 0.95, 0.95),
+            bg,
+            text,
+            icon: Color::from_rgb(1.0, 1.0, 1.0),
+            search: Search {
+                bg,
+                text,
+                placeholder: Color::from_rgb(0.7, 0.7, 0.7),
+                selection: Color::from_rgb(0.3, 0.7, 0.5),
+                border: Border::colored(2.0, Color::from_rgb(1.0, 1.0, 1.0), 1.0),
+            },
             tab: Color::from_rgb(0.2, 0.2, 0.2),
             tab_hovered: Color::from_rgb(0.25, 0.25, 0.25),
             tab_active: Color::from_rgb(0.35, 0.35, 0.35),
             sound_bg: Color::from_rgb(0.2, 0.6, 0.4),
-            hovered_sound_bg: Color::from_rgb(0.3, 0.7, 0.5),
+            sound_bg_hovered: Color::from_rgb(0.3, 0.7, 0.5),
+            overlay_bg: Color::from_rgb(0.2, 0.2, 0.2),
+            overlay_border: Border::colored(4.0, Color::from_rgb(1.0, 1.0, 1.0), 1.0),
         }
     }
 }
@@ -28,8 +63,8 @@ impl Default for Theme {
 impl iced::theme::Base for Theme {
     fn base(&self) -> iced::theme::Style {
         iced::theme::Style {
-            background_color: self.bg,
-            text_color: self.text,
+            background_color: self.bg.into(),
+            text_color: self.text.into(),
         }
     }
 
@@ -102,33 +137,34 @@ impl_catalog_with_status! {
 }
 
 pub fn text_input_default(theme: &Theme, _status: text_input::Status) -> text_input::Style {
+    let search = theme.search;
     text_input::Style {
-        background: Background::Color(theme.bg),
-        border: Border::default().rounded(2).color(Color::WHITE).width(1.0),
-        icon: Color::BLACK,
-        placeholder: theme.text,
-        value: theme.text,
-        selection: Color::WHITE,
+        background: search.bg.into(),
+        border: search.border.into(),
+        icon: MISSING_COLOR.into(),
+        placeholder: search.placeholder.into(),
+        value: search.text.into(),
+        selection: search.selection.into(),
     }
 }
 
 pub fn progress_bar_default(theme: &Theme) -> progress_bar::Style {
     progress_bar::Style {
-        background: Background::Color(Color::BLACK),
-        bar: Background::Color(theme.sound_bg),
-        border: Border::default().rounded(2),
+        background: MISSING_COLOR.into(),
+        bar: theme.sound_bg.into(),
+        border: Border::new(2.0).into(),
     }
 }
 
-pub fn svg_default(_theme: &Theme, _status: svg::Status) -> svg::Style {
+pub fn svg_default(theme: &Theme, _status: svg::Status) -> svg::Style {
     svg::Style {
-        color: Some(Color::WHITE),
+        color: theme.icon.into(),
     }
 }
 
 pub fn text_default(theme: &Theme) -> text::Style {
     text::Style {
-        color: Some(theme.text),
+        color: theme.text.into(),
     }
 }
 
@@ -138,20 +174,29 @@ pub fn container_transparent(_theme: &Theme) -> container::Style {
 
 pub fn container_opaque(theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(theme.sound_bg)),
-        border: Border::default().rounded(2),
+        background: theme.sound_bg.into(),
+        border: Border::new(2.0).into(),
+        ..Default::default()
+    }
+}
+
+pub fn container_overlay(theme: &Theme) -> container::Style {
+    container::Style {
+        background: theme.overlay_bg.into(),
+        text_color: theme.text.into(),
+        border: theme.overlay_border.into(),
         ..Default::default()
     }
 }
 
 pub fn button_sound(theme: &Theme, status: button::Status) -> button::Style {
     button::Style {
-        text_color: theme.text,
-        background: Some(Background::Color(match status {
-            button::Status::Hovered => theme.hovered_sound_bg,
-            _ => theme.sound_bg,
-        })),
-        border: Border::default().rounded(2),
+        text_color: theme.text.into(),
+        background: match status {
+            button::Status::Hovered => theme.sound_bg_hovered.into(),
+            _ => theme.sound_bg.into(),
+        },
+        border: Border::new(2.0).into(),
         ..Default::default()
     }
 }
@@ -159,10 +204,10 @@ pub fn button_sound(theme: &Theme, status: button::Status) -> button::Style {
 pub fn scrollable_default(theme: &Theme, _status: scrollable::Status) -> scrollable::Style {
     let rail = scrollable::Rail {
         background: None,
-        border: Border::default(),
+        border: Border::none().into(),
         scroller: scrollable::Scroller {
-            background: Background::Color(theme.text),
-            border: Border::default().rounded(2),
+            background: theme.text.into(),
+            border: Border::new(2.0).into(),
         },
     };
 
@@ -172,10 +217,10 @@ pub fn scrollable_default(theme: &Theme, _status: scrollable::Status) -> scrolla
         horizontal_rail: rail,
         gap: None,
         auto_scroll: scrollable::AutoScroll {
-            background: Background::Color(Color::WHITE),
-            border: Border::default(),
+            background: Color::from_rgb(1.0, 1.0, 1.0).into(),
+            border: Border::none().into(),
             shadow: Shadow::default(),
-            icon: Color::BLACK,
+            icon: MISSING_COLOR.into(),
         },
     }
 }
