@@ -35,17 +35,16 @@ pub struct App {
     svgs: Svgs,
     page: Page,
     search: String,
-    settings_open: bool,
 }
 
 pub struct Svgs {
     stop: svg::Handle,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
     Sounds,
-    Microphone,
+    FilterChain,
     SoundTriggering,
 }
 
@@ -165,7 +164,6 @@ impl App {
             },
             page: Page::Sounds,
             search: String::new(),
-            settings_open: false,
         }
     }
 

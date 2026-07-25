@@ -2,10 +2,13 @@ use iced::{Background, Border, Color, Shadow};
 
 #[derive(Clone)]
 pub struct Theme {
-    bg: Color,
-    text: Color,
-    sound_bg: Color,
-    hovered_sound_bg: Color,
+    pub bg: Color,
+    pub text: Color,
+    pub tab: Color,
+    pub tab_hovered: Color,
+    pub tab_active: Color,
+    pub sound_bg: Color,
+    pub hovered_sound_bg: Color,
 }
 
 impl Default for Theme {
@@ -13,6 +16,9 @@ impl Default for Theme {
         Self {
             bg: Color::from_rgb(0.2, 0.2, 0.2),
             text: Color::from_rgb(0.95, 0.95, 0.95),
+            tab: Color::from_rgb(0.2, 0.2, 0.2),
+            tab_hovered: Color::from_rgb(0.25, 0.25, 0.25),
+            tab_active: Color::from_rgb(0.35, 0.35, 0.35),
             sound_bg: Color::from_rgb(0.2, 0.6, 0.4),
             hovered_sound_bg: Color::from_rgb(0.3, 0.7, 0.5),
         }

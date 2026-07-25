@@ -1,9 +1,9 @@
 use crate::app::{
-    Action, App, Sound,
+    Action, App, Page, Sound,
     theme::{self, Theme},
 };
 use iced::{
-    Fill, Subscription, Task, time,
+    Background, Fill, Subscription, Task, time,
     widget::{
         Column, Row, button, column, container, progress_bar, row, scrollable, svg, text,
         text_input,
@@ -13,11 +13,14 @@ use rand::RngExt;
 use std::time::{Duration, Instant};
 use std::{path::Path, sync::atomic::Ordering};
 
+mod overlay;
+
 pub type Element<'a, Message = self::Message> = iced::Element<'a, Message, Theme>;
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Tick,
+    ChangePage(Page),
     PlaySound(usize),
     StopSound,
     SearchInput(String),
@@ -35,6 +38,7 @@ impl App {
                     self.playing_sound = None;
                 }
             }
+            Message::ChangePage(page) => self.page = page,
             Message::PlaySound(index) => {
                 if let Some(sound) = self.config.sounds.get(index) {
                     self.play_sound(sound.clone(), false);
@@ -44,9 +48,7 @@ impl App {
                 *self.decoder.lock().unwrap() = None;
                 self.playing_sound = None;
             }
-            Message::SearchInput(input) => {
-                self.search = input;
-            }
+            Message::SearchInput(input) => self.search = input,
             Message::SearchSubmit => {
                 if Self::is_possible_path(&self.search) {
                     // Copy Path on Windows for some reason inserts quotation marks
@@ -88,6 +90,29 @@ impl App {
         } else {
             0.0
         };
+
+        fn tab(page_name: &str, page: Page, current_page: Page) -> Element<'_> {
+            button(text(page_name))
+                .style(move |theme: &Theme, status| button::Style {
+                    background: Some(Background::Color(if current_page == page {
+                        theme.tab_active
+                    } else if status == button::Status::Active {
+                        theme.tab
+                    } else {
+                        theme.tab_hovered
+                    })),
+                    text_color: theme.text,
+                    ..Default::default()
+                })
+                .on_press(Message::ChangePage(page))
+                .into()
+        }
+
+        let header_header = row([
+            tab("Sounds", Page::Sounds, self.page),
+            tab("Filter Chain", Page::FilterChain, self.page),
+            tab("Sound Triggering", Page::SoundTriggering, self.page),
+        ]);
 
         let header = column([
             text(heading).size(20).into(),
@@ -151,9 +176,14 @@ impl App {
         };
 
         container(
-            column([header.into(), search.into(), sound_list])
-                .spacing(8)
-                .padding(16),
+            column([
+                header_header.into(),
+                header.into(),
+                search.into(),
+                sound_list,
+            ])
+            .spacing(8)
+            .padding(8),
         )
         .width(Fill)
         .height(Fill)
