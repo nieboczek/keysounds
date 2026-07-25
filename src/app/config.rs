@@ -1,4 +1,4 @@
-use crate::app::{Action, App, Sfx};
+use crate::app::{Action, App, Sound};
 use rdev::Key;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -51,10 +51,10 @@ pub struct Config {
     pub input_device: String,
     pub output_device: String,
     pub virtual_output_device: String,
-    pub rst_range: (f32, f32),
-    pub rst_sfx_list: Vec<String>,
+    pub sound_triggering_interval_range: (f32, f32),
+    pub sound_triggering_sound_list: Vec<String>,
     pub keybinds: Vec<Keybind>,
-    pub sfx: Vec<Sfx>,
+    pub sounds: Vec<Sound>,
 }
 
 impl App {
@@ -79,13 +79,13 @@ impl App {
                     input_device: String::new(),
                     output_device: String::new(),
                     virtual_output_device: String::from("CABLE Input (VB-Audio Virtual Cable)"),
-                    rst_range: (600.0, 900.0),
-                    rst_sfx_list: Vec::new(),
+                    sound_triggering_interval_range: (600.0, 900.0),
+                    sound_triggering_sound_list: Vec::new(),
                     keybinds: vec![
                         Keybind::default_keybind(Key::KeyT, Action::SearchAndPlay),
-                        Keybind::default_keybind(Key::KeyS, Action::StopSfx),
+                        Keybind::default_keybind(Key::KeyS, Action::StopSound),
                     ],
-                    sfx: Vec::new(),
+                    sounds: Vec::new(),
                 };
 
                 Self::save_config_result(&config);

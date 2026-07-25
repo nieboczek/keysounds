@@ -20,9 +20,9 @@ pub mod theme;
 pub struct App {
     _keep_alive: audio::KeepAlive,
     action_channel: Arc<Mutex<Action>>,
-    random_sfx_triggering: bool,
-    rst_deadline: Instant,
-    sfx_data: Option<SfxData>,
+    sound_triggering: bool,
+    sound_triggering_deadline: Instant,
+    playing_sound: Option<PlayingSound>,
     target_sample_rate: u32,
     decoder: Arc<Mutex<Option<AudioDecoder>>>,
     decoder_pos: Arc<AtomicU64>,
@@ -35,8 +35,6 @@ pub struct App {
     svgs: Svgs,
     page: Page,
     search: String,
-    selected_sfx: Option<usize>,
-    editing_sfx: Option<usize>,
     settings_open: bool,
 }
 
@@ -48,21 +46,21 @@ pub struct Svgs {
 pub enum Page {
     Sounds,
     Microphone,
-    RandomSfx,
+    SoundTriggering,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Sfx {
+pub struct Sound {
     name: String,
     path: String,
     #[serde(
-        default = "Sfx::default_volume",
-        skip_serializing_if = "Sfx::is_default_volume"
+        default = "Sound::default_volume",
+        skip_serializing_if = "Sound::is_default_volume"
     )]
     volume: f32,
 }
 
-impl Sfx {
+impl Sound {
     #[inline]
     const fn default_volume() -> f32 {
         1.0
@@ -74,17 +72,17 @@ impl Sfx {
     }
 }
 
-struct SfxData {
+struct PlayingSound {
     randomly_triggered: bool,
     duration: Duration,
-    sfx: Sfx,
+    sound: Sound,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
     SearchAndPlay,
-    StopSfx,
+    StopSound,
     FilterPreset(Vec<AudioFilter>),
     SetKeybinds(Vec<Keybind>),
     None,
@@ -151,9 +149,9 @@ impl App {
         App {
             _keep_alive: keep_alive,
             action_channel,
-            random_sfx_triggering: false,
-            rst_deadline: Instant::now(),
-            sfx_data: None,
+            sound_triggering: false,
+            sound_triggering_deadline: Instant::now(),
+            playing_sound: None,
             target_sample_rate: sample_rate,
             decoder,
             decoder_pos,
@@ -167,8 +165,6 @@ impl App {
             },
             page: Page::Sounds,
             search: String::new(),
-            selected_sfx: None,
-            editing_sfx: None,
             settings_open: false,
         }
     }

@@ -1,4 +1,4 @@
-use crate::app::{App, Sfx, SfxData};
+use crate::app::{App, PlayingSound, Sound};
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{Device, Stream};
 use ringbuf::HeapRb;
@@ -26,23 +26,23 @@ const RING_BLOCKS: usize = 8;
 const RING_CAPACITY: usize = BLOCK_SAMPLES * RING_BLOCKS;
 
 impl App {
-    pub(super) fn play_sfx(&mut self, sfx: Sfx, randomly_triggered: bool) {
-        let decoder = AudioDecoder::new(&sfx.path, self.target_sample_rate, sfx.volume);
+    pub(super) fn play_sound(&mut self, sound: Sound, randomly_triggered: bool) {
+        let decoder = AudioDecoder::new(&sound.path, self.target_sample_rate, sound.volume);
         let duration = decoder.total_duration().unwrap_or_default();
 
         *self.decoder.lock().unwrap() = Some(decoder);
         self.decoder_pos.store(0, Ordering::Relaxed);
-        self.sfx_data = Some(SfxData {
+        self.playing_sound = Some(PlayingSound {
             duration,
-            sfx,
+            sound,
             randomly_triggered,
         });
     }
 
-    pub(super) fn play_sfx_from_path(&mut self, path: String) {
-        self.play_sfx(
-            Sfx {
-                name: "SFX from path".to_string(),
+    pub(super) fn play_sound_from_path(&mut self, path: String) {
+        self.play_sound(
+            Sound {
+                name: "Sound from path".to_string(),
                 path,
                 volume: 1.0,
             },

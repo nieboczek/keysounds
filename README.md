@@ -31,11 +31,11 @@ input_device = "Microphone (2- Shure MV7)"
 # Your virtual output device name
 # (Cable for Windows/Mac: https://vb-audio.com/Cable)
 output_device = "CABLE Input (VB-Audio Virtual Cable)"
-# Random Sfx Triggering time range in seconds
+# Sound Triggering interval range in seconds
 # (currently 133.7s to 420s between audios)
-rst_range = [133.7, 420]
-# List of audios that can be selected by Random Sfx Triggering
-rst_sfx_list = ["METAL PIPE", "Moyai 🗿"]
+sound_triggering_interval_range = [133.7, 420]
+# List of sounds that can be selected by Sound Triggering
+sound_triggering_sound_list = ["METAL PIPE", "Moyai 🗿"]
 
 # A keybind object
 [[keybinds]]
@@ -57,22 +57,22 @@ shift = false
 ctrl = true
 alt = true
 key = "KeyS"
-action = "stop_sfx"
+action = "stop_sound"
 
-# An sfx object
-[[sfx]]
-name = "Dream Speedrun Music" # Unique identifier used in audio search
+# A sound object
+[[sounds]]
+name = "Dream Speedrun Music" # Unique identifier used in sound search
 path = "D:/music/dream_speedrun.mp3" # Path to the audio file
 skip_to = 114.2 # (Optional; Default = 0) Position in seconds to skip to
-volume = 0.9 # (Optional; Default = 1) Audio volume (1.0 = 100%)
+volume = 0.9 # (Optional; Default = 1) Sound volume (1.0 = 100%)
 
-[[sfx]]
+[[sounds]]
 name = "Moyai 🗿"
-path = "D:/sfx_ogg/moyai.ogg"
+path = "D:/sounds/moyai.ogg"
 
-[[sfx]]
+[[sounds]]
 name = "METAL PIPE"
-path = "D:/sfx/metal_pipe.mp3"
+path = "D:/sounds/metal_pipe.mp3"
 volume = 0.69
 ```
 

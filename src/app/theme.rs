@@ -4,8 +4,8 @@ use iced::{Background, Border, Color, Shadow};
 pub struct Theme {
     bg: Color,
     text: Color,
-    sfx_bg: Color,
-    hovered_sfx_bg: Color,
+    sound_bg: Color,
+    hovered_sound_bg: Color,
 }
 
 impl Default for Theme {
@@ -13,8 +13,8 @@ impl Default for Theme {
         Self {
             bg: Color::from_rgb(0.2, 0.2, 0.2),
             text: Color::from_rgb(0.95, 0.95, 0.95),
-            sfx_bg: Color::from_rgb(0.2, 0.6, 0.4),
-            hovered_sfx_bg: Color::from_rgb(0.3, 0.7, 0.5),
+            sound_bg: Color::from_rgb(0.2, 0.6, 0.4),
+            hovered_sound_bg: Color::from_rgb(0.3, 0.7, 0.5),
         }
     }
 }
@@ -89,7 +89,7 @@ impl_catalog! {
 }
 
 impl_catalog_with_status! {
-    button => button_sfx,
+    button => button_sound,
     scrollable => scrollable_default,
     svg => svg_default,
     text_input => text_input_default,
@@ -109,7 +109,7 @@ pub fn text_input_default(theme: &Theme, _status: text_input::Status) -> text_in
 pub fn progress_bar_default(theme: &Theme) -> progress_bar::Style {
     progress_bar::Style {
         background: Background::Color(Color::BLACK),
-        bar: Background::Color(theme.sfx_bg),
+        bar: Background::Color(theme.sound_bg),
         border: Border::default().rounded(2),
     }
 }
@@ -132,18 +132,18 @@ pub fn container_transparent(_theme: &Theme) -> container::Style {
 
 pub fn container_opaque(theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(theme.sfx_bg)),
+        background: Some(Background::Color(theme.sound_bg)),
         border: Border::default().rounded(2),
         ..Default::default()
     }
 }
 
-pub fn button_sfx(theme: &Theme, status: button::Status) -> button::Style {
+pub fn button_sound(theme: &Theme, status: button::Status) -> button::Style {
     button::Style {
         text_color: theme.text,
         background: Some(Background::Color(match status {
-            button::Status::Hovered => theme.hovered_sfx_bg,
-            _ => theme.sfx_bg,
+            button::Status::Hovered => theme.hovered_sound_bg,
+            _ => theme.sound_bg,
         })),
         border: Border::default().rounded(2),
         ..Default::default()
