@@ -49,13 +49,6 @@ action = "search_and_play" # Action that will be triggered if the key combinatio
 shift = false
 ctrl = true
 alt = true
-key = "KeyY"
-action = "skip_to_part"
-
-[[keybinds]]
-shift = false
-ctrl = true
-alt = true
 key = "KeyS"
 action = "stop_sound"
 
