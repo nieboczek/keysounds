@@ -55,18 +55,23 @@ pub enum Page {
 pub struct Sfx {
     name: String,
     path: String,
-    #[serde(default = "default_volume", skip_serializing_if = "is_default_volume")]
+    #[serde(
+        default = "Sfx::default_volume",
+        skip_serializing_if = "Sfx::is_default_volume"
+    )]
     volume: f32,
 }
 
-#[inline]
-const fn default_volume() -> f32 {
-    1.0
-}
+impl Sfx {
+    #[inline]
+    const fn default_volume() -> f32 {
+        1.0
+    }
 
-#[inline]
-const fn is_default_volume(volume: &f32) -> bool {
-    *volume == 1.0
+    #[inline]
+    const fn is_default_volume(volume: &f32) -> bool {
+        *volume == Self::default_volume()
+    }
 }
 
 struct SfxData {

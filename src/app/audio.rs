@@ -79,9 +79,9 @@ impl App {
         let sample_rate = out_config.sample_rate();
         let filter_chain = Arc::new(Mutex::new(FilterChain::new(sample_rate)));
 
-        let mic_rb: HeapRb<f32> = HeapRb::new(RING_CAPACITY);
-        let decoder_rb: HeapRb<f32> = HeapRb::new(RING_CAPACITY);
-        let decoder_too_rb: HeapRb<f32> = HeapRb::new(RING_CAPACITY);
+        let mic_rb = HeapRb::<f32>::new(RING_CAPACITY);
+        let decoder_rb = HeapRb::<f32>::new(RING_CAPACITY);
+        let decoder_too_rb = HeapRb::<f32>::new(RING_CAPACITY);
 
         let (mut mic_prod, mut mic_cons) = mic_rb.split();
         let (mut decoder_prod, mut decoder_cons) = decoder_rb.split();

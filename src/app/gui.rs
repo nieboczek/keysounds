@@ -118,7 +118,7 @@ impl App {
                 .on_submit(Message::SearchSubmit)
         };
 
-        let sfx_list: Element<'_, Message> = if self.config.sfx.is_empty() {
+        let sfx_list: Element<'_> = if self.config.sfx.is_empty() {
             text("No sounds configured").into()
         } else {
             let mut content = Column::new().spacing(8);
@@ -126,11 +126,10 @@ impl App {
             let mut count = 0;
 
             for (i, sfx) in self.get_search_results() {
-                let btn: Element<'_, Message> = button(text(sfx.name.as_str()).size(14))
+                let btn = button(text(sfx.name.as_str()).size(14))
                     .width(128)
                     .height(128)
-                    .on_press(Message::PlaySfx(i))
-                    .into();
+                    .on_press(Message::PlaySfx(i));
 
                 current_row = current_row.push(btn);
                 count += 1;
@@ -149,7 +148,7 @@ impl App {
         };
 
         container(
-            column([header.into(), search.into(), sfx_list.into()])
+            column([header.into(), search.into(), sfx_list])
                 .spacing(8)
                 .padding(16),
         )
