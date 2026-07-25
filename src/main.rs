@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::{App, gui::Message, theme::Theme};
 
 pub mod app;
 pub mod hotkey_handler;
@@ -6,7 +6,7 @@ pub mod hotkey_handler;
 fn main() -> iced::Result {
     env_logger::init();
 
-    iced::application(
+    iced::application::<App, Message, Theme, iced::Renderer>(
         || {
             let channel = hotkey_handler::start();
             (App::new(channel), iced::Task::none())
@@ -17,6 +17,6 @@ fn main() -> iced::Result {
     .subscription(App::subscription)
     .title("keysounds")
     .window_size(iced::Size::new(420.0, 600.0))
-    .centered()
+    .theme(|app: &App| Some(app.theme()))
     .run()
 }

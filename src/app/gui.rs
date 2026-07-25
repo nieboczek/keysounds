@@ -1,6 +1,9 @@
-use crate::app::{Action, App, Sfx};
+use crate::app::{
+    Action, App, Sfx,
+    theme::{self, Theme},
+};
 use iced::{
-    Element, Fill, Subscription, Task, time,
+    Fill, Subscription, Task, time,
     widget::{
         Column, Row, button, column, container, progress_bar, row, scrollable, svg, text,
         text_input,
@@ -9,6 +12,8 @@ use iced::{
 use rand::RngExt;
 use std::time::{Duration, Instant};
 use std::{path::Path, sync::atomic::Ordering};
+
+pub type Element<'a, Message = self::Message> = iced::Element<'a, Message, Theme>;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -81,16 +86,16 @@ impl App {
             0.0
         };
 
-        let header = column![
-            text(heading).size(20),
+        let header = column([
+            text(heading).size(20).into(),
             row([
                 container(text(Self::format_time_left(duration.saturating_sub(pos))).size(14))
-                    .style(container::rounded_box)
+                    .style(theme::container_opaque)
                     .center_y(32)
                     .padding([4, 8])
                     .into(),
                 button(svg(self.svgs.stop.clone()).style(|_, _| svg::Style {
-                    color: Some(iced::Color::WHITE)
+                    color: Some(iced::Color::WHITE),
                 }))
                 .padding(0)
                 .height(32)
@@ -102,8 +107,9 @@ impl App {
                     .girth(32)
                     .into(),
             ])
-            .spacing(4),
-        ]
+            .spacing(4)
+            .into(),
+        ])
         .spacing(4);
 
         let search = {
@@ -142,10 +148,14 @@ impl App {
             scrollable(content).into()
         };
 
-        container(column![header, search, sfx_list].spacing(8).padding(16))
-            .width(Fill)
-            .height(Fill)
-            .into()
+        container(
+            column([header.into(), search.into(), sfx_list.into()])
+                .spacing(8)
+                .padding(16),
+        )
+        .width(Fill)
+        .height(Fill)
+        .into()
     }
 
     pub fn subscription(_state: &App) -> Subscription<Message> {

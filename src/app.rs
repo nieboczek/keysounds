@@ -1,6 +1,7 @@
 use crate::app::{
     audio::{AudioDecoder, FilterChain},
     config::{AudioFilter, Config, Keybind},
+    theme::Theme,
 };
 use cpal::traits::{DeviceTrait, HostTrait};
 use iced::widget::svg;
@@ -14,6 +15,7 @@ use std::{
 pub mod audio;
 pub mod config;
 pub mod gui;
+pub mod theme;
 
 pub struct App {
     _keep_alive: audio::KeepAlive,
@@ -29,6 +31,7 @@ pub struct App {
     filter_chain: Arc<Mutex<FilterChain>>,
 
     // GUI
+    theme: Theme,
     svgs: Svgs,
     page: Page,
     search: String,
@@ -153,6 +156,7 @@ impl App {
             rng: rand::rng(),
             filter_chain,
 
+            theme: Theme::default(),
             svgs: Svgs {
                 stop: svg::Handle::from_memory(include_bytes!("../assets/stop.svg")),
             },
@@ -162,5 +166,9 @@ impl App {
             editing_sfx: None,
             settings_open: false,
         }
+    }
+
+    pub fn theme(&self) -> Theme {
+        self.theme.clone()
     }
 }
