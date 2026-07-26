@@ -1,7 +1,7 @@
 use crate::app::{
     audio::{AudioDecoder, FilterChain},
     config::{AudioFilter, Config, Keybind},
-    gui::theme::Theme,
+    gui::Theme,
 };
 use cpal::traits::{DeviceTrait, HostTrait};
 use iced::widget::svg;

@@ -1,4 +1,4 @@
-use crate::app::gui::theme::{Color, MISSING_COLOR};
+use crate::app::gui::view::theme::{Color, MISSING_COLOR};
 use serde::Deserialize;
 
 #[derive(Deserialize, Clone, Copy)]

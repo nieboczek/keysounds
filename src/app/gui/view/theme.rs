@@ -23,6 +23,7 @@ pub struct Theme {
     pub overlay_bg: Color,
     pub overlay_border: Border,
     pub player_bar_background: Color,
+    pub randomly_triggered_badge_bg: Color,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -58,6 +59,7 @@ impl Default for Theme {
             overlay_bg: Color::from_rgb(0.2, 0.2, 0.2),
             overlay_border: Border::colored(4.0, Color::from_rgb(1.0, 1.0, 1.0), 1.0),
             player_bar_background: Color::from_rgb(0.1, 0.1, 0.1),
+            randomly_triggered_badge_bg: Color::from_rgb(0.8, 0.1, 0.1),
         }
     }
 }
@@ -178,6 +180,14 @@ pub fn container_opaque(theme: &Theme) -> container::Style {
     container::Style {
         background: theme.sound_bg.into(),
         border: Border::new(2.0).into(),
+        ..Default::default()
+    }
+}
+
+pub fn container_badge(theme: &Theme) -> container::Style {
+    container::Style {
+        background: theme.randomly_triggered_badge_bg.into(),
+        border: Border::new(4.0).into(),
         ..Default::default()
     }
 }

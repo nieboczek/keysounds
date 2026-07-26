@@ -1,19 +1,11 @@
-use crate::app::{Action, App, Page, Sound, gui::theme::Theme};
-use iced::{
-    Fill, Subscription, Task, time,
-    widget::{
-        Column, Row, button, column, container, progress_bar, row, scrollable, svg, text,
-        text_input,
-    },
-};
+use crate::app::{Action, App, Page, Sound};
+use iced::{Subscription, Task, time};
 use rand::RngExt;
 use std::time::{Duration, Instant};
 use std::{path::Path, sync::atomic::Ordering};
 
-mod overlay;
-pub mod theme;
-
-pub type Element<'a, Message = self::Message> = iced::Element<'a, Message, Theme>;
+mod view;
+pub use view::theme::Theme;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -39,7 +31,7 @@ impl App {
             Message::ChangePage(page) => self.page = page,
             Message::PlaySound(index) => {
                 if let Some(sound) = self.config.sounds.get(index) {
-                    self.play_sound(sound.clone(), false);
+                    self.play_sound(sound.clone(), true);
                 }
             }
             Message::StopSound => {
@@ -69,142 +61,8 @@ impl App {
         Task::none()
     }
 
-    pub fn view(&self) -> Element<'_, Message> {
-        let heading = self
-            .playing_sound
-            .as_ref()
-            .map(|d| d.sound.name.as_str())
-            .unwrap_or("");
-
-        let pos = Duration::from_nanos(self.decoder_pos.load(Ordering::Relaxed));
-        let duration = self
-            .playing_sound
-            .as_ref()
-            .map(|d| d.duration)
-            .unwrap_or_default();
-
-        let progress = if duration.as_secs_f32() > 0.0 {
-            (pos.as_secs_f32() / duration.as_secs_f32()).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-
-        fn tab(page_name: &str, page: Page, current_page: Page) -> Element<'_> {
-            button(text(page_name))
-                .style(move |theme: &Theme, status| button::Style {
-                    background: match status {
-                        _ if current_page == page => theme.tab_active.into(),
-                        button::Status::Active | button::Status::Disabled => theme.tab.into(),
-                        _ => theme.tab_hovered.into(),
-                    },
-                    text_color: theme.text.into(),
-                    ..Default::default()
-                })
-                .on_press(Message::ChangePage(page))
-                .into()
-        }
-
-        let tabs = row([
-            tab("Sounds", Page::Sounds, self.page),
-            tab("Filter Chain", Page::FilterChain, self.page),
-            tab("Sound Triggering", Page::SoundTriggering, self.page),
-        ]);
-
-        let search = {
-            text_input("Search Sounds...", &self.search)
-                .on_input(Message::SearchInput)
-                .on_submit(Message::SearchSubmit)
-        };
-
-        let sound_list: Element<'_> = if self.config.sounds.is_empty() {
-            text("No sounds configured").into()
-        } else {
-            let mut content = Column::new().spacing(8);
-            let mut current_row = Row::new().spacing(8);
-            let mut count = 0;
-
-            for (i, sound) in self.get_search_results() {
-                let btn = button(text(sound.name.as_str()).size(14))
-                    .width(128)
-                    .height(128)
-                    .on_press(Message::PlaySound(i));
-
-                current_row = current_row.push(btn);
-                count += 1;
-
-                if count % 3 == 0 {
-                    content = content.push(current_row);
-                    current_row = Row::new().spacing(8);
-                }
-            }
-
-            if count % 3 != 0 {
-                content = content.push(current_row);
-            }
-
-            scrollable(content).into()
-        };
-
-        let base = container(
-            column([tabs.into(), search.into(), sound_list])
-                .spacing(8)
-                .padding(8),
-        )
-        .width(Fill)
-        .height(Fill);
-
-        overlay::Overlay::new(
-            base,
-            move || {
-                container(
-                    container(
-                        column([
-                            text(heading).size(20).into(),
-                            row([
-                                container(
-                                    text(Self::format_time_left(duration.saturating_sub(pos)))
-                                        .size(14),
-                                )
-                                .style(theme::container_opaque)
-                                .center_y(32)
-                                .padding([4, 8])
-                                .into(),
-                                button(svg(self.svgs.stop.clone()))
-                                    .padding(0)
-                                    .height(32)
-                                    .width(32)
-                                    .on_press(Message::StopSound)
-                                    .into(),
-                                progress_bar(0.0..=1.0, progress)
-                                    .length(Fill)
-                                    .girth(32)
-                                    .into(),
-                            ])
-                            .spacing(4)
-                            .into(),
-                        ])
-                        .spacing(4),
-                    )
-                    .padding(12)
-                    .style(theme::container_overlay),
-                )
-                .padding(8)
-                .into()
-            },
-            self.playing_sound.is_some(),
-        )
-        .into()
-    }
-
     pub fn subscription(_state: &App) -> Subscription<Message> {
         time::every(Duration::from_millis(16)).map(|_| Message::Tick)
-    }
-
-    fn format_time_left(dur: Duration) -> String {
-        let total_secs = dur.as_secs();
-        let minutes = total_secs / 60;
-        let seconds = total_secs % 60;
-        format!("{:02}:{:02}", minutes, seconds)
     }
 
     fn get_search_results(&self) -> impl Iterator<Item = (usize, &Sound)> {
@@ -240,9 +98,8 @@ impl App {
 
     fn trigger_sound_randomly(&mut self) {
         if self.sound_triggering && self.sound_triggering_deadline <= Instant::now() {
-            let idx: usize = self
-                .rng
-                .random_range(0..self.config.sound_triggering_sound_list.len());
+            let range = 0..self.config.sound_triggering_sound_list.len();
+            let idx = self.rng.random_range(range);
             let name = &self.config.sound_triggering_sound_list[idx];
             let sound = self.config.sounds.iter().find(|sound| &sound.name == name);
 
@@ -257,7 +114,7 @@ impl App {
         }
     }
 
-    pub fn is_possible_path(str: &str) -> bool {
+    fn is_possible_path(str: &str) -> bool {
         #[cfg(windows)]
         {
             // Copy Path on Windows for some reason inserts quotation marks

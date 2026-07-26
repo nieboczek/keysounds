@@ -1,6 +1,6 @@
 use crate::app::{
     App,
-    gui::{Message, theme::Theme},
+    gui::{Message, Theme},
 };
 
 pub mod app;
