@@ -169,14 +169,12 @@ impl App {
                                 .center_y(32)
                                 .padding([4, 8])
                                 .into(),
-                                button(svg(self.svgs.stop.clone()).style(|_, _| svg::Style {
-                                    color: Some(iced::Color::WHITE),
-                                }))
-                                .padding(0)
-                                .height(32)
-                                .width(32)
-                                .on_press(Message::StopSound)
-                                .into(),
+                                button(svg(self.svgs.stop.clone()))
+                                    .padding(0)
+                                    .height(32)
+                                    .width(32)
+                                    .on_press(Message::StopSound)
+                                    .into(),
                                 progress_bar(0.0..=1.0, progress)
                                     .length(Fill)
                                     .girth(32)

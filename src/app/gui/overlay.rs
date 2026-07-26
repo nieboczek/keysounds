@@ -72,6 +72,23 @@ where
             .layout(&mut tree.children[0], renderer, limits)
     }
 
+    fn mouse_interaction(
+        &self,
+        tree: &Tree,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+        renderer: &Renderer,
+    ) -> mouse::Interaction {
+        self.base.as_widget().mouse_interaction(
+            &tree.children[0],
+            layout,
+            cursor,
+            viewport,
+            renderer,
+        )
+    }
+
     fn draw(
         &self,
         tree: &Tree,
@@ -263,13 +280,18 @@ where
         renderer: &Renderer,
     ) -> mouse::Interaction {
         if cursor.is_over(layout.bounds()) {
-            self.content.as_widget().mouse_interaction(
+            let interaction = self.content.as_widget().mouse_interaction(
                 self.tree,
                 layout,
                 cursor,
                 &layout.bounds(),
                 renderer,
-            )
+            );
+
+            match interaction {
+                mouse::Interaction::None => mouse::Interaction::Idle,
+                interaction => interaction,
+            }
         } else {
             mouse::Interaction::None
         }
