@@ -1,7 +1,7 @@
 use crate::app::{
     audio::{AudioDecoder, FilterChain},
     config::{AudioFilter, Config, Keybind},
-    theme::Theme,
+    gui::theme::Theme,
 };
 use cpal::traits::{DeviceTrait, HostTrait};
 use iced::widget::svg;
@@ -15,7 +15,6 @@ use std::{
 pub mod audio;
 pub mod config;
 pub mod gui;
-pub mod theme;
 
 pub struct App {
     _keep_alive: audio::KeepAlive,

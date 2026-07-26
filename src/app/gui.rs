@@ -1,7 +1,4 @@
-use crate::app::{
-    Action, App, Page, Sound,
-    theme::{self, Theme},
-};
+use crate::app::{Action, App, Page, Sound, gui::theme::Theme};
 use iced::{
     Fill, Subscription, Task, time,
     widget::{
@@ -14,6 +11,7 @@ use std::time::{Duration, Instant};
 use std::{path::Path, sync::atomic::Ordering};
 
 mod overlay;
+pub mod theme;
 
 pub type Element<'a, Message = self::Message> = iced::Element<'a, Message, Theme>;
 

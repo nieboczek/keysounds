@@ -1,4 +1,7 @@
-use crate::app::{App, gui::Message, theme::Theme};
+use crate::app::{
+    App,
+    gui::{Message, theme::Theme},
+};
 
 pub mod app;
 pub mod hotkey_handler;
