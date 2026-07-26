@@ -22,6 +22,7 @@ pub struct Theme {
     pub sound_bg_hovered: Color,
     pub overlay_bg: Color,
     pub overlay_border: Border,
+    pub player_bar_background: Color,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -56,6 +57,7 @@ impl Default for Theme {
             sound_bg_hovered: Color::from_rgb(0.3, 0.7, 0.5),
             overlay_bg: Color::from_rgb(0.2, 0.2, 0.2),
             overlay_border: Border::colored(4.0, Color::from_rgb(1.0, 1.0, 1.0), 1.0),
+            player_bar_background: Color::from_rgb(0.1, 0.1, 0.1),
         }
     }
 }
@@ -150,7 +152,7 @@ pub fn text_input_default(theme: &Theme, _status: text_input::Status) -> text_in
 
 pub fn progress_bar_default(theme: &Theme) -> progress_bar::Style {
     progress_bar::Style {
-        background: MISSING_COLOR.into(),
+        background: theme.player_bar_background.into(),
         bar: theme.sound_bg.into(),
         border: Border::new(2.0).into(),
     }
