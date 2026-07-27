@@ -29,7 +29,7 @@ impl FilterChain {
         sample
     }
 
-    pub fn sync_with_vector(&mut self, filters: Vec<AudioFilter>) {
+    pub fn sync(&mut self, filters: impl IntoIterator<Item = AudioFilter>) {
         self.filters.clear();
         self.filters.extend(
             filters

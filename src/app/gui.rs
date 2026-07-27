@@ -1,10 +1,14 @@
-use crate::app::{Action, App, Page, Sound};
+use crate::app::{App, Page, Sound, config::Keybind};
 use iced::{Subscription, Task, time};
 use rand::RngExt;
-use std::time::{Duration, Instant};
-use std::{path::Path, sync::atomic::Ordering};
+use std::{
+    path::Path,
+    sync::atomic::Ordering,
+    time::{Duration, Instant},
+};
 
 mod view;
+
 pub use view::theme::Theme;
 
 #[derive(Debug, Clone)]
@@ -20,18 +24,11 @@ pub enum Message {
 impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::Tick => {
-                self.trigger_sound_randomly();
-                self.handle_actions();
-
-                if self.decoder_pos.load(Ordering::Relaxed) == u64::MAX {
-                    self.playing_sound = None;
-                }
-            }
+            Message::Tick => {}
             Message::ChangePage(page) => self.page = page,
             Message::PlaySound(index) => {
                 if let Some(sound) = self.config.sounds.get(index) {
-                    self.play_sound(sound.clone(), true);
+                    self.play_sound(sound.clone(), false);
                 }
             }
             Message::StopSound => {
@@ -58,6 +55,14 @@ impl App {
                 }
             }
         }
+
+        self.trigger_sound_randomly();
+        self.handle_keybinds();
+
+        if self.playing_sound.is_some() && self.decoder_pos.load(Ordering::Relaxed) == u64::MAX {
+            self.playing_sound = None;
+        }
+
         Task::none()
     }
 
@@ -78,20 +83,28 @@ impl App {
         sound_name.to_lowercase().contains(search) // TODO: advanced search algorithm, upgrade to fzf at some point
     }
 
-    fn handle_actions(&mut self) {
-        let mut guard = self.action_channel.lock().unwrap();
+    fn handle_keybinds(&mut self) {
+        #[inline]
+        fn matches_keybind(keybind: Keybind, target_keybind: impl Into<Option<Keybind>>) -> bool {
+            target_keybind.into().is_some_and(|t| t == keybind)
+        }
 
-        let old = std::mem::replace(&mut *guard, Action::None);
-        match old {
-            Action::None => {}
-            Action::SetKeybinds(_) => *guard = old,
-            Action::SearchAndPlay => self.search.clear(),
-            Action::StopSound => {
-                *self.decoder.lock().unwrap() = None;
-                self.playing_sound = None;
-            }
-            Action::FilterPreset(filters) => {
-                self.filter_chain.lock().unwrap().sync_with_vector(filters);
+        let Some(keybind) = self.keybind_listener.try_recv() else {
+            return;
+        };
+
+        if matches_keybind(keybind, self.config.stop_sound_keybind) {
+            *self.decoder.lock().unwrap() = None;
+            self.playing_sound = None;
+        } else if matches_keybind(keybind, self.config.search_and_play_keybind) {
+            // noop for now
+        } else {
+            for preset in &self.config.filter_presets {
+                if matches_keybind(keybind, preset.keybind) {
+                    let mut chain = self.filter_chain.lock().unwrap();
+                    chain.sync(preset.filters.clone());
+                    break;
+                }
             }
         }
     }

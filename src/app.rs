@@ -1,7 +1,8 @@
 use crate::app::{
     audio::{AudioDecoder, FilterChain},
-    config::{AudioFilter, Config, Keybind},
+    config::Config,
     gui::Theme,
+    keybind_listener::KeybindListener,
 };
 use cpal::traits::{DeviceTrait, HostTrait};
 use iced::widget::svg;
@@ -15,10 +16,11 @@ use std::{
 pub mod audio;
 pub mod config;
 pub mod gui;
+pub mod keybind_listener;
 
 pub struct App {
     _keep_alive: audio::KeepAlive,
-    action_channel: Arc<Mutex<Action>>,
+    keybind_listener: KeybindListener,
     sound_triggering: bool,
     sound_triggering_deadline: Instant,
     playing_sound: Option<PlayingSound>,
@@ -76,26 +78,13 @@ struct PlayingSound {
     sound: Sound,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Action {
-    SearchAndPlay,
-    StopSound,
-    FilterPreset(Vec<AudioFilter>),
-    SetKeybinds(Vec<Keybind>),
-    None,
-}
-
 impl App {
     pub fn device_desc_to_name(desc: cpal::DeviceDescription) -> String {
         format!("{} ({})", desc.name(), desc.driver().unwrap())
     }
 
-    #[inline]
-    pub fn new(action_channel: Arc<Mutex<Action>>) -> App {
+    pub fn new() -> App {
         let config = Self::load_config_result();
-        *action_channel.lock().unwrap() = Action::SetKeybinds(config.keybinds.clone());
-
         let decoder = Arc::new(Mutex::new(None));
         let decoder_pos = Arc::new(AtomicU64::new(u64::MAX));
         let host = cpal::default_host();
@@ -146,7 +135,7 @@ impl App {
 
         App {
             _keep_alive: keep_alive,
-            action_channel,
+            keybind_listener: KeybindListener::new(),
             sound_triggering: false,
             sound_triggering_deadline: Instant::now(),
             playing_sound: None,

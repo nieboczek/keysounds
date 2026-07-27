@@ -1,5 +1,4 @@
-use crate::app::{Action, App, Sound};
-use rdev::Key;
+use crate::app::{App, Sound};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{read_to_string, write},
@@ -25,25 +24,19 @@ pub enum AudioFilter {
     },
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Keybind {
-    pub shift: bool,
     pub ctrl: bool,
     pub alt: bool,
-    pub key: Key,
-    pub action: Action,
+    pub shift: bool,
+    pub key: rdev::Key,
 }
 
-impl Keybind {
-    pub fn default_keybind(key: Key, action: Action) -> Self {
-        Keybind {
-            shift: false,
-            ctrl: true,
-            alt: true,
-            key,
-            action,
-        }
-    }
+#[derive(Clone, Serialize, Deserialize)]
+pub struct FilterPreset {
+    pub name: String,
+    pub keybind: Keybind,
+    pub filters: Vec<AudioFilter>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,16 +44,19 @@ pub struct Config {
     pub input_device: String,
     pub output_device: String,
     pub virtual_output_device: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_and_play_keybind: Option<Keybind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_sound_keybind: Option<Keybind>,
     pub sound_triggering_interval_range: (f32, f32),
     pub sound_triggering_sound_list: Vec<String>,
-    pub keybinds: Vec<Keybind>,
+    pub filter_presets: Vec<FilterPreset>,
     pub sounds: Vec<Sound>,
 }
 
 impl App {
     pub fn load_config(&mut self) {
         self.config = Self::load_config_result();
-        *self.action_channel.lock().unwrap() = Action::SetKeybinds(self.config.keybinds.clone());
     }
 
     pub fn save_config(&self) {
@@ -81,10 +77,19 @@ impl App {
                     virtual_output_device: String::from("CABLE Input (VB-Audio Virtual Cable)"),
                     sound_triggering_interval_range: (600.0, 900.0),
                     sound_triggering_sound_list: Vec::new(),
-                    keybinds: vec![
-                        Keybind::default_keybind(Key::KeyT, Action::SearchAndPlay),
-                        Keybind::default_keybind(Key::KeyS, Action::StopSound),
-                    ],
+                    search_and_play_keybind: Some(Keybind {
+                        ctrl: true,
+                        alt: true,
+                        shift: false,
+                        key: rdev::Key::KeyT,
+                    }),
+                    stop_sound_keybind: Some(Keybind {
+                        ctrl: true,
+                        alt: true,
+                        shift: false,
+                        key: rdev::Key::KeyS,
+                    }),
+                    filter_presets: Vec::new(),
                     sounds: Vec::new(),
                 };
 
@@ -101,8 +106,91 @@ impl App {
     }
 
     fn config_file() -> PathBuf {
-        let mut dir = dirs_next::config_dir().unwrap();
+        let mut dir = dirs::config_dir().unwrap();
         dir.push("keysounds/config.toml");
         dir
+    }
+}
+
+mod keybind_serde {
+    use crate::app::{config::Keybind, keybind_listener};
+    use serde::{Deserialize, Serialize};
+    use std::{fmt, str::FromStr};
+
+    impl fmt::Display for Keybind {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            if self.ctrl {
+                write!(f, "Ctrl+")?;
+            }
+            if self.alt {
+                write!(f, "Alt+")?;
+            }
+            if self.shift {
+                write!(f, "Shift+")?;
+            }
+            keybind_listener::write_key_str(self.key, f)
+        }
+    }
+
+    impl FromStr for Keybind {
+        type Err = String;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            let parts = s.split('+').map(|p| p.trim());
+            let mut ctrl = false;
+            let mut alt = false;
+            let mut shift = false;
+            let mut key = None;
+
+            for part in parts {
+                if part.is_empty() {
+                    continue;
+                }
+
+                let part = part.to_ascii_lowercase();
+                if part == "ctrl" {
+                    if ctrl {
+                        return Err(format!("Ctrl was already specified"));
+                    }
+                    ctrl = true;
+                } else if part == "alt" {
+                    if alt {
+                        return Err(format!("Alt was already specified"));
+                    }
+                    alt = true;
+                } else if part == "shift" {
+                    if shift {
+                        return Err(format!("Shift was already specified"));
+                    }
+                    shift = true;
+                } else {
+                    if key.is_some() {
+                        return Err(format!("Multiple keys specified: {s}"));
+                    }
+                    key = Some(keybind_listener::parse_key(&part)?);
+                }
+            }
+
+            let key = key.ok_or_else(|| format!("No key specified: {s}"))?;
+            Ok(Keybind {
+                ctrl,
+                alt,
+                shift,
+                key,
+            })
+        }
+    }
+
+    impl Serialize for Keybind {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            serializer.collect_str(self)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Keybind {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            let s = String::deserialize(deserializer)?;
+            s.parse().map_err(serde::de::Error::custom)
+        }
     }
 }
