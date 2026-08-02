@@ -1,13 +1,43 @@
-use crate::app::audio::SampleTransformer;
+use crate::app::audio::{AudioProcessor, ProcessContext};
 
 pub(super) struct Reverb {
+    channels: Vec<ReverbChannel>,
+}
+
+impl Reverb {
+    pub(super) fn new(
+        sample_rate: u32,
+        channels: usize,
+        room_size: f32,
+        damping: f32,
+        wet: f32,
+    ) -> Self {
+        Self {
+            channels: (0..channels)
+                .map(|_| ReverbChannel::new(sample_rate, room_size, damping, wet))
+                .collect(),
+        }
+    }
+}
+
+impl AudioProcessor for Reverb {
+    fn process(&mut self, samples: &mut [f32], context: ProcessContext) {
+        for frame in samples.chunks_exact_mut(context.channels) {
+            for (sample, channel) in frame.iter_mut().zip(&mut self.channels) {
+                *sample = channel.process(*sample);
+            }
+        }
+    }
+}
+
+struct ReverbChannel {
     combs: Vec<Comb>,
     all_pass: AllPass,
     wet: f32,
 }
 
-impl Reverb {
-    pub(super) fn new(sample_rate: u32, room_size: f32, damping: f32, wet: f32) -> Self {
+impl ReverbChannel {
+    fn new(sample_rate: u32, room_size: f32, damping: f32, wet: f32) -> Self {
         let scale = (sample_rate as f32) / 44100.0;
 
         let comb_sizes = [1116, 1188, 1277, 1356];
@@ -30,8 +60,8 @@ impl Reverb {
     }
 }
 
-impl SampleTransformer for Reverb {
-    fn filter(&mut self, sample: f32) -> f32 {
+impl ReverbChannel {
+    fn process(&mut self, sample: f32) -> f32 {
         let mut acc = 0.0;
 
         for comb in &mut self.combs {

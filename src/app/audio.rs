@@ -11,7 +11,7 @@ use std::thread;
 use std::time::Duration;
 
 pub use decoder::AudioDecoder;
-pub use filter::{FilterChain, SampleTransformer};
+pub use filter::{AudioProcessor, FilterChain, ProcessContext};
 
 mod decoder;
 mod filter;
@@ -77,7 +77,7 @@ impl App {
             .unwrap_or_else(|| virtual_out_device.default_output_config().unwrap());
 
         let sample_rate = out_config.sample_rate();
-        let filter_chain = Arc::new(Mutex::new(FilterChain::new(sample_rate)));
+        let filter_chain = Arc::new(Mutex::new(FilterChain::new(sample_rate, CHANNELS)));
 
         let mic_rb = HeapRb::<f32>::new(RING_CAPACITY);
         let decoder_rb = HeapRb::<f32>::new(RING_CAPACITY);
@@ -117,10 +117,14 @@ impl App {
                     let mut mic_iter = mic_cons.pop_iter();
                     let mut decoder_iter = decoder_too_cons.pop_iter();
 
-                    let mut chain = filter_chain_too.lock().unwrap();
+                    for item in data.iter_mut() {
+                        *item = mic_iter.next().unwrap_or_default();
+                    }
+
+                    filter_chain_too.lock().unwrap().process(data);
+
                     for item in data {
-                        *item = chain.filter(mic_iter.next().unwrap_or_default())
-                            + decoder_iter.next().unwrap_or_default();
+                        *item += decoder_iter.next().unwrap_or_default();
                     }
                 },
                 |err| eprintln!("Output stream error: {err}"),

@@ -1,4 +1,4 @@
-use crate::app::audio::SampleTransformer;
+use crate::app::audio::{AudioProcessor, ProcessContext};
 
 pub(super) struct Shittify {
     strength: i32,
@@ -9,10 +9,8 @@ impl Shittify {
     pub(super) fn new(strength: i32, cutoff: i32) -> Self {
         Shittify { strength, cutoff }
     }
-}
 
-impl SampleTransformer for Shittify {
-    fn filter(&mut self, sample: f32) -> f32 {
+    fn transform(&self, sample: f32) -> f32 {
         // DROP 16 BITS
         let sample_i16 = (sample * i16::MAX as f32) as i16;
 
@@ -24,17 +22,25 @@ impl SampleTransformer for Shittify {
     }
 }
 
+impl AudioProcessor for Shittify {
+    fn process(&mut self, samples: &mut [f32], _: ProcessContext) {
+        for sample in samples {
+            *sample = self.transform(*sample);
+        }
+    }
+}
+
 pub(super) struct BoostBass {
-    prev_output: f32,
+    prev_outputs: Vec<f32>,
     sample_rate: f32,
     cutoff: f32,
     gain: f32,
 }
 
 impl BoostBass {
-    pub(super) fn new(sample_rate: u32, cutoff: f32, gain: f32) -> Self {
+    pub(super) fn new(sample_rate: u32, channels: usize, cutoff: f32, gain: f32) -> Self {
         BoostBass {
-            prev_output: 0.0,
+            prev_outputs: vec![0.0; channels],
             sample_rate: sample_rate as f32,
             cutoff,
             gain,
@@ -42,19 +48,20 @@ impl BoostBass {
     }
 }
 
-impl SampleTransformer for BoostBass {
-    fn filter(&mut self, sample: f32) -> f32 {
+impl AudioProcessor for BoostBass {
+    fn process(&mut self, samples: &mut [f32], context: ProcessContext) {
         let rc = 1.0 / (2.0 * std::f32::consts::PI * self.cutoff);
         let dt = 1.0 / self.sample_rate;
         let alpha = dt / (rc + dt);
 
-        let low = self.prev_output + alpha * (sample - self.prev_output);
-        self.prev_output = low;
+        for frame in samples.chunks_exact_mut(context.channels) {
+            for (sample, prev_output) in frame.iter_mut().zip(&mut self.prev_outputs) {
+                let low = *prev_output + alpha * (*sample - *prev_output);
+                *prev_output = low;
 
-        // Boost lows by mixing them back in
-        let boosted = sample + (low * (self.gain - 1.0));
-
-        // Clamp to [-1, 1] to avoid clipping
-        boosted.clamp(-1.0, 1.0)
+                // Boost lows by mixing them back in.
+                *sample = (*sample + low * (self.gain - 1.0)).clamp(-1.0, 1.0);
+            }
+        }
     }
 }

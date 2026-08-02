@@ -1,32 +1,43 @@
 use crate::app::config::AudioFilter;
-use reverb::Reverb;
-use simple::{BoostBass, Shittify};
 
 mod reverb;
 mod simple;
 
+use self::{
+    reverb::Reverb,
+    simple::{BoostBass, Shittify},
+};
+
 pub struct FilterChain {
-    filters: Vec<Box<dyn SampleTransformer>>,
-    sample_rate: u32,
+    filters: Vec<Box<dyn AudioProcessor>>,
+    context: ProcessContext,
 }
 
-pub trait SampleTransformer: Send + Sync {
-    fn filter(&mut self, sample: f32) -> f32;
+#[derive(Clone, Copy)]
+pub struct ProcessContext {
+    pub sample_rate: u32,
+    pub channels: usize,
+}
+
+pub trait AudioProcessor: Send {
+    fn process(&mut self, samples: &mut [f32], context: ProcessContext);
 }
 
 impl FilterChain {
-    pub(super) fn new(sample_rate: u32) -> FilterChain {
+    pub(super) fn new(sample_rate: u32, channels: usize) -> FilterChain {
         FilterChain {
             filters: Vec::new(),
-            sample_rate,
+            context: ProcessContext {
+                sample_rate,
+                channels,
+            },
         }
     }
 
-    pub(super) fn filter(&mut self, mut sample: f32) -> f32 {
+    pub(super) fn process(&mut self, samples: &mut [f32]) {
         for filter in &mut self.filters {
-            sample = filter.filter(sample);
+            filter.process(samples, self.context);
         }
-        sample
     }
 
     pub fn sync(&mut self, filters: impl IntoIterator<Item = AudioFilter>) {
@@ -34,21 +45,33 @@ impl FilterChain {
         self.filters.extend(
             filters
                 .into_iter()
-                .map(|filter| Self::filter_to_transformer(self.sample_rate, filter)),
+                .map(|filter| Self::filter_to_processor(self.context, filter)),
         );
     }
 
-    fn filter_to_transformer(sample_rate: u32, filter: AudioFilter) -> Box<dyn SampleTransformer> {
+    fn filter_to_processor(
+        context: ProcessContext,
+        filter: AudioFilter,
+    ) -> Box<dyn AudioProcessor> {
         match filter {
-            AudioFilter::BoostBass { gain, cutoff } => {
-                Box::new(BoostBass::new(sample_rate, cutoff, gain))
-            }
+            AudioFilter::BoostBass { gain, cutoff } => Box::new(BoostBass::new(
+                context.sample_rate,
+                context.channels,
+                cutoff,
+                gain,
+            )),
             AudioFilter::Shittify { strength, cutoff } => Box::new(Shittify::new(strength, cutoff)),
             AudioFilter::Reverb {
                 room_size,
                 damping,
                 wet,
-            } => Box::new(Reverb::new(sample_rate, room_size, damping, wet)),
+            } => Box::new(Reverb::new(
+                context.sample_rate,
+                context.channels,
+                room_size,
+                damping,
+                wet,
+            )),
         }
     }
 }
