@@ -114,15 +114,12 @@ impl App {
             .build_output_stream(
                 virtual_out_config.into(),
                 move |data: &mut [f32], _| {
-                    let mut mic_iter = mic_cons.pop_iter();
-                    let mut decoder_iter = decoder_too_cons.pop_iter();
-
-                    for item in data.iter_mut() {
-                        *item = mic_iter.next().unwrap_or_default();
-                    }
+                    // if there are not enough elements in mic_cons, rest of data should be zeroes
+                    mic_cons.pop_slice(data);
 
                     filter_chain_too.lock().unwrap().process(data);
 
+                    let mut decoder_iter = decoder_too_cons.pop_iter();
                     for item in data {
                         *item += decoder_iter.next().unwrap_or_default();
                     }
