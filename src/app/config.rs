@@ -8,7 +8,7 @@ use std::{
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AudioFilter {
+pub enum FilterType {
     BassBoost {
         gain: f32,
         cutoff: f32,
@@ -24,12 +24,33 @@ pub enum AudioFilter {
     },
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct AudioFilter {
+    #[serde(rename = "type")]
+    pub filter_type: FilterType,
+    #[serde(
+        default = "AudioFilter::enabled_default",
+        skip_serializing_if = "AudioFilter::is_enabled_default"
+    )]
+    pub enabled: bool,
+    #[serde(skip)]
+    pub expanded: bool,
+}
+
 impl AudioFilter {
+    fn is_enabled_default(v: &bool) -> bool {
+        *v
+    }
+
+    fn enabled_default() -> bool {
+        true
+    }
+
     pub fn human_name(&self) -> &'static str {
-        match self {
-            AudioFilter::BassBoost { .. } => "Bass Boost",
-            AudioFilter::Shittify { .. } => "Shittify",
-            AudioFilter::Reverb { .. } => "Reverb",
+        match self.filter_type {
+            FilterType::BassBoost { .. } => "Bass Boost",
+            FilterType::Shittify { .. } => "Shittify",
+            FilterType::Reverb { .. } => "Reverb",
         }
     }
 }

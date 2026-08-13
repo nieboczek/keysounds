@@ -1,4 +1,4 @@
-use crate::app::config::AudioFilter;
+use crate::app::config::FilterType;
 
 mod reverb;
 mod simple;
@@ -40,7 +40,7 @@ impl FilterChain {
         }
     }
 
-    pub fn sync(&mut self, filters: impl IntoIterator<Item = AudioFilter>) {
+    pub fn sync(&mut self, filters: impl IntoIterator<Item = FilterType>) {
         self.filters.clear();
         self.filters.extend(
             filters
@@ -49,19 +49,16 @@ impl FilterChain {
         );
     }
 
-    fn filter_to_processor(
-        context: ProcessContext,
-        filter: AudioFilter,
-    ) -> Box<dyn AudioProcessor> {
+    fn filter_to_processor(context: ProcessContext, filter: FilterType) -> Box<dyn AudioProcessor> {
         match filter {
-            AudioFilter::BassBoost { gain, cutoff } => Box::new(BassBoost::new(
+            FilterType::BassBoost { gain, cutoff } => Box::new(BassBoost::new(
                 context.sample_rate,
                 context.channels,
                 cutoff,
                 gain,
             )),
-            AudioFilter::Shittify { strength, cutoff } => Box::new(Shittify::new(strength, cutoff)),
-            AudioFilter::Reverb {
+            FilterType::Shittify { strength, cutoff } => Box::new(Shittify::new(strength, cutoff)),
+            FilterType::Reverb {
                 room_size,
                 damping,
                 wet,

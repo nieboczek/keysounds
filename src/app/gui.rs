@@ -20,6 +20,8 @@ pub enum Message {
     SearchInput(String),
     SearchSubmit,
     SelectPreset(usize),
+    ToggleFilter(usize, bool),
+    ExpandFilter(usize),
 }
 
 impl App {
@@ -55,7 +57,14 @@ impl App {
                     }
                 }
             }
-            Message::SelectPreset(index) => self.selected_preset = index,
+            Message::SelectPreset(idx) => self.selected_preset = idx,
+            Message::ToggleFilter(idx, v) => {
+                self.config.filter_presets[self.selected_preset].filters[idx].enabled = v;
+            }
+            Message::ExpandFilter(idx) => {
+                let filter = &mut self.config.filter_presets[self.selected_preset].filters[idx];
+                filter.expanded = !filter.expanded;
+            }
         }
 
         self.trigger_sound_randomly();
@@ -104,7 +113,7 @@ impl App {
             for preset in &self.config.filter_presets {
                 if matches_keybind(keybind, preset.keybind) {
                     let mut chain = self.filter_chain.lock().unwrap();
-                    chain.sync(preset.filters.clone());
+                    chain.sync(preset.filters.iter().map(|f| f.filter_type.clone()));
                     break;
                 }
             }

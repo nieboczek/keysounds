@@ -5,10 +5,9 @@ use serde::Deserialize;
 mod border;
 mod color_proxy;
 
-pub use border::Border;
-pub use color_proxy::Color;
+pub use self::{border::Border, color_proxy::Color};
 
-const MISSING_COLOR: Color = Color::from_rgb(1.0, 0.0, 1.0);
+pub const MISSING_COLOR: Color = Color::from_rgb(1.0, 0.0, 1.0);
 
 #[derive(Deserialize, Clone)]
 pub struct Theme {
@@ -59,6 +58,9 @@ pub struct FilterPresets {
     pub border_active: Border,
     pub icons: Color,
     pub icons_hovered: Color,
+    pub toggle_bg: Color,
+    pub toggle_on: Color,
+    pub toggle_off: Color,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -128,6 +130,9 @@ impl Default for Theme {
                 border_active,
                 icons: text_dark,
                 icons_hovered: text,
+                toggle_bg: bg,
+                toggle_on: active_color,
+                toggle_off: text_dark,
             },
             player_overlay: PlayerOverlay {
                 bg: bg_light,
@@ -238,6 +243,7 @@ impl_catalog_with_status! {
     svg => svg_default,
     text_input => text_input_default,
     slider => slider_default,
+    toggler => toggler_default,
 }
 
 pub fn slider_default(_theme: &Theme, _status: slider::Status) -> slider::Style {
@@ -423,5 +429,19 @@ pub fn scrollable_default(theme: &Theme, _status: scrollable::Status) -> scrolla
             shadow: Shadow::default(),
             icon: MISSING_COLOR.into(),
         },
+    }
+}
+
+pub fn toggler_default(_theme: &Theme, _status: toggler::Status) -> toggler::Style {
+    toggler::Style {
+        background: MISSING_COLOR.into(),
+        background_border_width: 0.0,
+        background_border_color: MISSING_COLOR.into(),
+        foreground: MISSING_COLOR.into(),
+        foreground_border_width: 0.0,
+        foreground_border_color: MISSING_COLOR.into(),
+        text_color: None,
+        border_radius: None,
+        padding_ratio: 0.0,
     }
 }

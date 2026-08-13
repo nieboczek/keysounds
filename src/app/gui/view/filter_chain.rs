@@ -1,6 +1,6 @@
 use crate::app::{
     App,
-    config::AudioFilter,
+    config::{AudioFilter, FilterType},
     gui::{
         Message, Theme,
         view::{Element, max_content_column::max_content_column, theme},
@@ -8,7 +8,7 @@ use crate::app::{
 };
 use iced::{
     Alignment, Length,
-    widget::{button, column, container, row, scrollable, slider, svg, text},
+    widget::{button, column, container, row, scrollable, slider, svg, text, toggler},
 };
 use std::iter;
 
@@ -66,46 +66,8 @@ impl App {
                 self.config.filter_presets[self.selected_preset]
                     .filters
                     .iter()
-                    .map(|filter| {
-                        container(
-                            column(
-                                iter::once(
-                                    row([
-                                        button(
-                                            svg(self.svgs.drag_handle.clone())
-                                                .style(theme::svg_filter),
-                                        )
-                                        .width(Length::Shrink)
-                                        .padding(0)
-                                        .into(),
-                                        text(filter.human_name()).into(),
-                                        container(
-                                            button(
-                                                svg(self.svgs.expand_arrow.clone())
-                                                    .style(theme::svg_filter),
-                                            )
-                                            .width(Length::Shrink)
-                                            .padding(0),
-                                        )
-                                        .align_right(Length::Fill)
-                                        .into(),
-                                    ])
-                                    .align_y(Alignment::Center)
-                                    .spacing(6)
-                                    .into(),
-                                )
-                                .chain(match true {
-                                    true => Some(Self::filter_properties(filter)),
-                                    false => None,
-                                }),
-                            )
-                            .spacing(4),
-                        )
-                        .padding(8)
-                        .style(theme::container_filter_preset)
-                        .width(Length::Fill)
-                        .into()
-                    }),
+                    .enumerate()
+                    .map(|(i, filter)| self.filter_preset(i, filter)),
             )
             .spacing(4),
         );
@@ -115,7 +77,77 @@ impl App {
             .into()
     }
 
-    fn filter_properties(filter: &AudioFilter) -> Element<'_> {
+    fn filter_preset<'a>(&'a self, i: usize, filter: &'a AudioFilter) -> Element<'a> {
+        container(
+            column(
+                iter::once(
+                    row([
+                        button(svg(self.svgs.drag_handle.clone()).style(theme::svg_filter))
+                            .width(Length::Shrink)
+                            .padding(0)
+                            .into(),
+                        button(text(filter.human_name()))
+                            .on_press(Message::ExpandFilter(i))
+                            .width(Length::Fill)
+                            .padding(0)
+                            .into(),
+                        container(
+                            row([
+                                toggler(filter.enabled)
+                                    .on_toggle(move |v| Message::ToggleFilter(i, v))
+                                    .style(|theme: &Theme, _status: toggler::Status| {
+                                        toggler::Style {
+                                            background: theme.filter_presets.toggle_bg.into(),
+                                            background_border_width: 0.0,
+                                            background_border_color: theme::MISSING_COLOR.into(),
+                                            foreground: match filter.enabled {
+                                                true => theme.filter_presets.toggle_on.into(),
+                                                false => theme.filter_presets.toggle_off.into(),
+                                            },
+                                            foreground_border_width: 0.0,
+                                            foreground_border_color: theme::MISSING_COLOR.into(),
+                                            text_color: None,
+                                            border_radius: None,
+                                            padding_ratio: 0.1,
+                                        }
+                                    })
+                                    .into(),
+                                button(
+                                    svg(self.svgs.expand_arrow.clone())
+                                        .style(theme::svg_filter)
+                                        .rotation(match filter.expanded {
+                                            true => 0.0,
+                                            false => -std::f32::consts::FRAC_PI_2,
+                                        }),
+                                )
+                                .on_press(Message::ExpandFilter(i))
+                                .width(Length::Shrink)
+                                .padding(0)
+                                .into(),
+                            ])
+                            .align_y(Alignment::Center)
+                            .spacing(4),
+                        )
+                        .into(),
+                    ])
+                    .align_y(Alignment::Center)
+                    .spacing(6)
+                    .into(),
+                )
+                .chain(match filter.expanded {
+                    true => Some(Self::filter_properties(&filter.filter_type)),
+                    false => None,
+                }),
+            )
+            .spacing(4),
+        )
+        .padding(8)
+        .style(theme::container_filter_preset)
+        .width(Length::Fill)
+        .into()
+    }
+
+    fn filter_properties(filter: &FilterType) -> Element<'_> {
         column([row([
             text("Sample property").into(),
             slider(0.0..=1000.0, 42.0, |_| Message::Tick).into(),
