@@ -36,17 +36,20 @@ pub struct App {
     svgs: Svgs,
     page: Page,
     search: String,
+    selected_preset: usize,
 }
 
 pub struct Svgs {
     stop: svg::Handle,
+    drag_handle: svg::Handle,
+    expand_arrow: svg::Handle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
     Sounds,
     FilterChain,
-    SoundTriggering,
+    Settings,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -133,6 +136,12 @@ impl App {
             Arc::clone(&decoder_pos),
         );
 
+        macro_rules! include_svg {
+            ($path:literal) => {
+                svg::Handle::from_memory(include_bytes!($path))
+            };
+        }
+
         App {
             _keep_alive: keep_alive,
             keybind_listener: KeybindListener::new(),
@@ -148,10 +157,13 @@ impl App {
 
             theme: Theme::default(),
             svgs: Svgs {
-                stop: svg::Handle::from_memory(include_bytes!("../assets/stop.svg")),
+                stop: include_svg!("../assets/stop.svg"),
+                drag_handle: include_svg!("../assets/drag-handle.svg"),
+                expand_arrow: include_svg!("../assets/expand-arrow.svg"),
             },
             page: Page::Sounds,
             search: String::new(),
+            selected_preset: 0,
         }
     }
 

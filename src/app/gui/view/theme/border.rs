@@ -9,7 +9,7 @@ pub struct Border {
 }
 
 impl Border {
-    pub(super) fn new(radius: f32) -> Self {
+    pub(super) fn uncolored(radius: f32) -> Self {
         Self {
             color: MISSING_COLOR,
             width: 0.0,
@@ -25,10 +25,10 @@ impl Border {
         }
     }
 
-    pub(super) fn colored(radius: f32, color: Color, width: f32) -> Self {
+    pub(super) fn new(color: Color, radius: f32) -> Self {
         Self {
             color,
-            width,
+            width: 1.0,
             radius,
         }
     }

@@ -9,7 +9,7 @@ use std::{
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioFilter {
-    BoostBass {
+    BassBoost {
         gain: f32,
         cutoff: f32,
     },
@@ -22,6 +22,16 @@ pub enum AudioFilter {
         damping: f32,
         wet: f32,
     },
+}
+
+impl AudioFilter {
+    pub fn human_name(&self) -> &'static str {
+        match self {
+            AudioFilter::BassBoost { .. } => "Bass Boost",
+            AudioFilter::Shittify { .. } => "Shittify",
+            AudioFilter::Reverb { .. } => "Reverb",
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

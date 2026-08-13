@@ -5,7 +5,7 @@ mod simple;
 
 use self::{
     reverb::Reverb,
-    simple::{BoostBass, Shittify},
+    simple::{BassBoost, Shittify},
 };
 
 pub struct FilterChain {
@@ -54,7 +54,7 @@ impl FilterChain {
         filter: AudioFilter,
     ) -> Box<dyn AudioProcessor> {
         match filter {
-            AudioFilter::BoostBass { gain, cutoff } => Box::new(BoostBass::new(
+            AudioFilter::BassBoost { gain, cutoff } => Box::new(BassBoost::new(
                 context.sample_rate,
                 context.channels,
                 cutoff,

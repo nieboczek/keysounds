@@ -1,6 +1,9 @@
 use crate::app::{
     App,
-    gui::{Message, view::Element},
+    gui::{
+        Message,
+        view::{Element, theme},
+    },
 };
 use iced::widget::{Column, Row, button, column, scrollable, text, text_input};
 
@@ -10,9 +13,7 @@ impl App {
             .on_input(Message::SearchInput)
             .on_submit(Message::SearchSubmit);
 
-        let sound_list: Element<'_> = if self.config.sounds.is_empty() {
-            text("No sounds configured").into()
-        } else {
+        let sound_list = {
             let mut content = Column::new().spacing(8);
             let mut current_row = Row::new().spacing(8);
             let mut count = 0;
@@ -21,7 +22,8 @@ impl App {
                 let btn = button(text(sound.name.as_str()).size(14))
                     .width(128)
                     .height(128)
-                    .on_press(Message::PlaySound(i));
+                    .on_press(Message::PlaySound(i))
+                    .style(theme::button_sound);
 
                 current_row = current_row.push(btn);
                 count += 1;
@@ -36,9 +38,9 @@ impl App {
                 content = content.push(current_row);
             }
 
-            scrollable(content).into()
+            scrollable(content)
         };
 
-        column([search.into(), sound_list]).into()
+        column([search.into(), sound_list.into()]).spacing(8).into()
     }
 }

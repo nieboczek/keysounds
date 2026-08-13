@@ -9,6 +9,13 @@ impl Color {
     pub(super) const fn from_rgb(r: f32, g: f32, b: f32) -> Self {
         Self(iced::Color::from_rgb(r, g, b))
     }
+
+    pub(super) const fn hex(hex: u32) -> Color {
+        let r = ((hex >> 16) & 0xFF) as f32 / 255.0;
+        let g = ((hex >> 8) & 0xFF) as f32 / 255.0;
+        let b = (hex & 0xFF) as f32 / 255.0;
+        Color::from_rgb(r, g, b)
+    }
 }
 
 impl Default for Color {

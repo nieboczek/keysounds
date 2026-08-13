@@ -19,6 +19,7 @@ pub enum Message {
     StopSound,
     SearchInput(String),
     SearchSubmit,
+    SelectPreset(usize),
 }
 
 impl App {
@@ -54,6 +55,7 @@ impl App {
                     }
                 }
             }
+            Message::SelectPreset(index) => self.selected_preset = index,
         }
 
         self.trigger_sound_randomly();

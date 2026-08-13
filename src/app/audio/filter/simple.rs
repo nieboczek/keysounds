@@ -30,16 +30,16 @@ impl AudioProcessor for Shittify {
     }
 }
 
-pub(super) struct BoostBass {
+pub(super) struct BassBoost {
     prev_outputs: Vec<f32>,
     sample_rate: f32,
     cutoff: f32,
     gain: f32,
 }
 
-impl BoostBass {
+impl BassBoost {
     pub(super) fn new(sample_rate: u32, channels: usize, cutoff: f32, gain: f32) -> Self {
-        BoostBass {
+        BassBoost {
             prev_outputs: vec![0.0; channels],
             sample_rate: sample_rate as f32,
             cutoff,
@@ -48,7 +48,7 @@ impl BoostBass {
     }
 }
 
-impl AudioProcessor for BoostBass {
+impl AudioProcessor for BassBoost {
     fn process(&mut self, samples: &mut [f32], context: ProcessContext) {
         let rc = 1.0 / (2.0 * std::f32::consts::PI * self.cutoff);
         let dt = 1.0 / self.sample_rate;
