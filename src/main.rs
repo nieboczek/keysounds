@@ -21,5 +21,6 @@ fn run_iced_app() -> iced::Result {
         .title("keysounds")
         .window_size(iced::Size::new(420.0, 600.0))
         .theme(|app: &App| Some(app.theme()))
+        .scale_factor(|app| app.gui_scale())
         .run()
 }

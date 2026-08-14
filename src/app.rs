@@ -170,4 +170,8 @@ impl App {
     pub fn theme(&self) -> Theme {
         self.theme.clone()
     }
+
+    pub fn gui_scale(&self) -> f32 {
+        self.config.gui_scale
+    }
 }

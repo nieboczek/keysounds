@@ -75,6 +75,7 @@ pub struct Config {
     pub input_device: String,
     pub output_device: String,
     pub virtual_output_device: String,
+    pub gui_scale: f32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub search_and_play_keybind: Option<Keybind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -106,6 +107,7 @@ impl App {
                     input_device: String::new(),
                     output_device: String::new(),
                     virtual_output_device: String::from("CABLE Input (VB-Audio Virtual Cable)"),
+                    gui_scale: 1.0,
                     sound_triggering_interval_range: (600.0, 900.0),
                     sound_triggering_sound_list: Vec::new(),
                     search_and_play_keybind: Some(Keybind {
