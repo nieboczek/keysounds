@@ -112,8 +112,13 @@ impl App {
         } else {
             for preset in &self.config.filter_presets {
                 if matches_keybind(keybind, preset.keybind) {
+                    let filters = preset.filters.iter().filter_map(|f| match f.enabled {
+                        true => Some(f.filter_type.clone()),
+                        false => None,
+                    });
+
                     let mut chain = self.filter_chain.lock().unwrap();
-                    chain.sync(preset.filters.iter().map(|f| f.filter_type.clone()));
+                    chain.sync(filters);
                     break;
                 }
             }
