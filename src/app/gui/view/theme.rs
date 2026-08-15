@@ -61,6 +61,8 @@ pub struct FilterPresets {
     pub toggle_bg: Color,
     pub toggle_on: Color,
     pub toggle_off: Color,
+    pub property_names: Color,
+    pub property_values: Color,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -133,6 +135,8 @@ impl Default for Theme {
                 toggle_bg: bg,
                 toggle_on: active_color,
                 toggle_off: text_dark,
+                property_names: text_dark,
+                property_values: text_dark,
             },
             player_overlay: PlayerOverlay {
                 bg: bg_light,
@@ -306,20 +310,30 @@ pub fn svg_stop(theme: &Theme, _status: svg::Status) -> svg::Style {
     }
 }
 
+fn text_color(color: Color) -> text::Style {
+    text::Style {
+        color: color.into(),
+    }
+}
+
 pub fn text_default(_theme: &Theme) -> text::Style {
     text::Style::default()
 }
 
+pub fn text_filter_property_name(theme: &Theme) -> text::Style {
+    text_color(theme.filter_presets.property_names)
+}
+
+pub fn text_filter_property_value(theme: &Theme) -> text::Style {
+    text_color(theme.filter_presets.property_values)
+}
+
 pub fn text_filter_preset_effects(theme: &Theme) -> text::Style {
-    text::Style {
-        color: theme.filter_presets.effects.into(),
-    }
+    text_color(theme.filter_presets.effects)
 }
 
 pub fn text_filter_preset_keybind(theme: &Theme) -> text::Style {
-    text::Style {
-        color: theme.filter_presets.keybind.into(),
-    }
+    text_color(theme.filter_presets.keybind)
 }
 
 pub fn container_default(_theme: &Theme) -> container::Style {

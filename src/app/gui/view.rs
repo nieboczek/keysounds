@@ -8,7 +8,8 @@ use iced::{
 };
 use std::{iter, sync::atomic::Ordering, time::Duration};
 
-mod filter_chain;
+mod filter_presets;
+mod filter_properties;
 mod max_content_column;
 mod overlay;
 mod settings;

@@ -1,4 +1,7 @@
-use crate::app::{App, Page, Sound, config::Keybind};
+use crate::app::{
+    App, Page, Sound,
+    config::{Keybind, filter::FilterProperty},
+};
 use iced::{Subscription, Task, time};
 use rand::RngExt;
 use std::{
@@ -9,7 +12,7 @@ use std::{
 
 mod view;
 
-pub use view::theme::Theme;
+pub use self::view::theme::Theme;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -22,6 +25,7 @@ pub enum Message {
     SelectPreset(usize),
     ToggleFilter(usize, bool),
     ExpandFilter(usize),
+    ChangeFilterProperty(usize, FilterProperty),
 }
 
 impl App {
@@ -64,6 +68,10 @@ impl App {
             Message::ExpandFilter(idx) => {
                 let filter = &mut self.config.filter_presets[self.selected_preset].filters[idx];
                 filter.expanded = !filter.expanded;
+            }
+            Message::ChangeFilterProperty(idx, prop) => {
+                let filter = &mut self.config.filter_presets[self.selected_preset].filters[idx];
+                prop.set(&mut filter.filter_type);
             }
         }
 

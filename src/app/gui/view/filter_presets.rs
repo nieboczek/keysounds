@@ -1,6 +1,6 @@
 use crate::app::{
     App,
-    config::{AudioFilter, FilterType},
+    config::filter::AudioFilter,
     gui::{
         Message, Theme,
         view::{Element, max_content_column::max_content_column, theme},
@@ -8,7 +8,7 @@ use crate::app::{
 };
 use iced::{
     Alignment, Length,
-    widget::{button, column, container, row, scrollable, slider, svg, text, toggler},
+    widget::{button, column, container, row, scrollable, svg, text, toggler},
 };
 use std::iter;
 
@@ -86,7 +86,7 @@ impl App {
                             .width(Length::Shrink)
                             .padding(0)
                             .into(),
-                        button(text(filter.human_name()))
+                        button(text(filter.name()))
                             .on_press(Message::ExpandFilter(i))
                             .width(Length::Fill)
                             .padding(0)
@@ -135,7 +135,7 @@ impl App {
                     .into(),
                 )
                 .chain(match filter.expanded {
-                    true => Some(Self::filter_properties(&filter.filter_type)),
+                    true => Some(self.filter_properties(i, &filter.filter_type)),
                     false => None,
                 }),
             )
@@ -147,27 +147,16 @@ impl App {
         .into()
     }
 
-    fn filter_properties(filter: &FilterType) -> Element<'_> {
-        column([row([
-            text("Sample property").into(),
-            slider(0.0..=1000.0, 42.0, |_| Message::Tick).into(),
-        ])
-        .align_y(Alignment::Center)
-        .spacing(4)
-        .into()])
-        .into()
-    }
-
     fn create_filter_summary(filters: &Vec<AudioFilter>) -> String {
         use std::fmt::Write;
 
         if filters.is_empty() {
-            return "(empty)".to_string();
+            return "(none)".to_string();
         }
 
         let mut s = String::new();
         for filter in filters {
-            let _ = writeln!(&mut s, "→ {}", filter.human_name());
+            let _ = writeln!(&mut s, "→ {}", filter.name());
         }
         s.pop(); // pop the last newline
         s

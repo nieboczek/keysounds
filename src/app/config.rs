@@ -1,4 +1,4 @@
-use crate::app::{App, Sound};
+use crate::app::{App, Sound, config::filter::AudioFilter};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{read_to_string, write},
@@ -6,54 +6,7 @@ use std::{
     path::PathBuf,
 };
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FilterType {
-    BassBoost {
-        gain: f32,
-        cutoff: f32,
-    },
-    Shittify {
-        strength: i32,
-        cutoff: i32,
-    },
-    Reverb {
-        room_size: f32,
-        damping: f32,
-        wet: f32,
-    },
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct AudioFilter {
-    #[serde(rename = "type")]
-    pub filter_type: FilterType,
-    #[serde(
-        default = "AudioFilter::enabled_default",
-        skip_serializing_if = "AudioFilter::is_enabled_default"
-    )]
-    pub enabled: bool,
-    #[serde(skip)]
-    pub expanded: bool,
-}
-
-impl AudioFilter {
-    fn is_enabled_default(v: &bool) -> bool {
-        *v
-    }
-
-    fn enabled_default() -> bool {
-        true
-    }
-
-    pub fn human_name(&self) -> &'static str {
-        match self.filter_type {
-            FilterType::BassBoost { .. } => "Bass Boost",
-            FilterType::Shittify { .. } => "Shittify",
-            FilterType::Reverb { .. } => "Reverb",
-        }
-    }
-}
+pub mod filter;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Keybind {

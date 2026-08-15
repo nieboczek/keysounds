@@ -1,4 +1,4 @@
-use crate::app::config::FilterType;
+use crate::app::config::filter::FilterType;
 
 mod reverb;
 mod simple;
