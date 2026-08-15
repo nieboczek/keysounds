@@ -2,7 +2,11 @@ use crate::app::{
     App, Page, Sound,
     config::{Keybind, filter::FilterProperty},
 };
-use iced::{Subscription, Task, time};
+use iced::{
+    Subscription, Task,
+    keyboard::{self, Modifiers},
+    time,
+};
 use rand::RngExt;
 use std::{
     path::Path,
@@ -17,6 +21,7 @@ pub use self::view::theme::Theme;
 #[derive(Debug, Clone)]
 pub enum Message {
     Tick,
+    Keyboard(keyboard::Event),
     ChangePage(Page),
     PlaySound(usize),
     StopSound,
@@ -32,6 +37,17 @@ impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Tick => {}
+            Message::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => match key {
+                keyboard::Key::Character(c) => {
+                    if c == "-" && modifiers == Modifiers::COMMAND {
+                        self.config.gui_scale -= 0.1;
+                    } else if c == "=" && modifiers == Modifiers::COMMAND {
+                        self.config.gui_scale += 0.1;
+                    }
+                }
+                _ => {}
+            },
+            Message::Keyboard(_) => {}
             Message::ChangePage(page) => self.page = page,
             Message::PlaySound(index) => {
                 if let Some(sound) = self.config.sounds.get(index) {
@@ -86,7 +102,21 @@ impl App {
     }
 
     pub fn subscription(_state: &App) -> Subscription<Message> {
-        time::every(Duration::from_millis(16)).map(|_| Message::Tick)
+        use iced::keyboard::{Key, Modifiers};
+
+        let keyboard = keyboard::listen().filter_map(|event| match event {
+            keyboard::Event::KeyPressed {
+                key: Key::Character(ref c),
+                modifiers,
+                ..
+            } if (c == "-" || c == "=") && modifiers == Modifiers::COMMAND => {
+                Some(Message::Keyboard(event))
+            }
+            _ => None,
+        });
+        let time = time::every(Duration::from_millis(16)).map(|_| Message::Tick);
+
+        Subscription::batch([keyboard, time])
     }
 
     fn get_search_results(&self) -> impl Iterator<Item = (usize, &Sound)> {
