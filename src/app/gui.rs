@@ -40,9 +40,9 @@ impl App {
             Message::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => match key {
                 keyboard::Key::Character(c) => {
                     if c == "-" && modifiers == Modifiers::COMMAND {
-                        self.config.gui_scale -= 0.1;
+                        self.config.gui_scale = (self.config.gui_scale - 0.1).max(0.5);
                     } else if c == "=" && modifiers == Modifiers::COMMAND {
-                        self.config.gui_scale += 0.1;
+                        self.config.gui_scale = (self.config.gui_scale + 0.1).min(4.0);
                     }
                 }
                 _ => {}
