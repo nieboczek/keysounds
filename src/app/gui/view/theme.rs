@@ -19,6 +19,7 @@ pub struct Theme {
     pub tabs: Tabs,
     pub filter_presets: FilterPresets,
     pub player_overlay: PlayerOverlay,
+    pub settings: Settings,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -80,6 +81,11 @@ pub struct PlayerOverlay {
     pub progress_bar_border: Border,
     pub randomly_triggered_bg: Color,
     pub randomly_triggered_border: Border,
+}
+
+#[derive(Deserialize, Clone, Copy)]
+pub struct Settings {
+    pub names: Color,
 }
 
 impl Default for Theme {
@@ -153,6 +159,7 @@ impl Default for Theme {
                 randomly_triggered_bg: Color::hex(0xfc3c3c),
                 randomly_triggered_border: Border::uncolored(4.0),
             },
+            settings: Settings { names: text },
         }
     }
 }
@@ -318,6 +325,10 @@ fn text_color(color: Color) -> text::Style {
 
 pub fn text_default(_theme: &Theme) -> text::Style {
     text::Style::default()
+}
+
+pub fn text_setting_name(theme: &Theme) -> text::Style {
+    text_color(theme.settings.names)
 }
 
 pub fn text_filter_property_name(theme: &Theme) -> text::Style {
