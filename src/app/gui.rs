@@ -18,6 +18,11 @@ mod view;
 
 pub use self::view::theme::Theme;
 
+pub const SCALES: [f32; 23] = [
+    0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.2, 2.4, 2.6,
+    2.8, 3.0, 3.5, 4.0,
+];
+
 #[derive(Debug, Clone)]
 pub enum Message {
     Tick,
@@ -36,6 +41,7 @@ pub enum Message {
     SetMicDevice(DeviceOption),
     SetOutDevice(DeviceOption),
     SetVirtualOutDevice(DeviceOption),
+    SetGuiScale(f32),
 }
 
 impl App {
@@ -44,10 +50,24 @@ impl App {
             Message::Tick => {}
             Message::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => match key {
                 keyboard::Key::Character(c) => {
-                    if c == "-" && modifiers == Modifiers::COMMAND {
-                        self.config.gui_scale = (self.config.gui_scale - 0.1).max(0.5);
-                    } else if c == "=" && modifiers == Modifiers::COMMAND {
-                        self.config.gui_scale = (self.config.gui_scale + 0.1).min(4.0);
+                    if (c == "-" || c == "=") && modifiers == Modifiers::COMMAND {
+                        let idx = SCALES
+                            .iter()
+                            .enumerate()
+                            .min_by(|a, b| {
+                                (a.1 - self.config.gui_scale)
+                                    .abs()
+                                    .total_cmp(&(b.1 - self.config.gui_scale).abs())
+                            })
+                            .map(|(i, _)| i)
+                            .unwrap_or(0);
+
+                        let new_idx = if c == "-" {
+                            idx.saturating_sub(1)
+                        } else {
+                            (idx + 1).min(SCALES.len() - 1)
+                        };
+                        self.config.gui_scale = SCALES[new_idx];
                     }
                 }
                 _ => {}
@@ -105,6 +125,9 @@ impl App {
             Message::SetVirtualOutDevice(device) => {
                 self.virtual_out_device = device;
                 // TODO: actually like reconnect the audio loop and shit
+            }
+            Message::SetGuiScale(scale) => {
+                self.config.gui_scale = scale;
             }
         }
 
