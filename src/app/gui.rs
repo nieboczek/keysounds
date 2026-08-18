@@ -1,5 +1,5 @@
 use crate::app::{
-    App, Page, Sound,
+    App, DeviceOption, Page, Sound,
     config::{Keybind, filter::FilterProperty},
 };
 use iced::{
@@ -27,10 +27,15 @@ pub enum Message {
     StopSound,
     SearchInput(String),
     SearchSubmit,
+    // Filter Chain
     SelectPreset(usize),
     ToggleFilter(usize, bool),
     ExpandFilter(usize),
     ChangeFilterProperty(usize, FilterProperty),
+    // Settings
+    SetMicDevice(DeviceOption),
+    SetOutDevice(DeviceOption),
+    SetVirtualOutDevice(DeviceOption),
 }
 
 impl App {
@@ -88,6 +93,18 @@ impl App {
             Message::ChangeFilterProperty(idx, prop) => {
                 let filter = &mut self.config.filter_presets[self.selected_preset].filters[idx];
                 prop.set(&mut filter.filter_type);
+            }
+            Message::SetMicDevice(device) => {
+                self.mic_device = device;
+                // TODO: actually like reconnect the audio loop and shit
+            }
+            Message::SetOutDevice(device) => {
+                self.out_device = device;
+                // TODO: actually like reconnect the audio loop and shit
+            }
+            Message::SetVirtualOutDevice(device) => {
+                self.virtual_out_device = device;
+                // TODO: actually like reconnect the audio loop and shit
             }
         }
 

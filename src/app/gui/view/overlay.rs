@@ -157,29 +157,44 @@ where
         &'b mut self,
         tree: &'b mut Tree,
         layout: Layout<'b>,
-        _renderer: &Renderer,
-        _viewport: &Rectangle,
-        _translation: iced::Vector,
+        renderer: &Renderer,
+        viewport: &Rectangle,
+        translation: iced::Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         while tree.children.len() < 2 {
             tree.children.push(Tree::empty());
         }
 
-        if !self.visible {
-            return None;
-        }
+        let (base_tree, content_tree) = tree.children.split_at_mut(1);
 
-        let content = self.content.get_or_insert_with(&self.content_fn);
-        tree.children[1].diff(&*content);
+        let base_overlay = self.base.as_widget_mut().overlay(
+            &mut base_tree[0],
+            layout,
+            renderer,
+            viewport,
+            translation,
+        );
 
-        Some(
+        let content_overlay = self.visible.then(|| {
+            let content = self.content.get_or_insert_with(&self.content_fn);
+            content_tree[0].diff(&*content);
+
             Content {
                 base_bounds: layout.bounds(),
-                tree: &mut tree.children[1],
+                tree: &mut content_tree[0],
                 content,
             }
-            .overlay(),
-        )
+            .overlay()
+        });
+
+        match (base_overlay, content_overlay) {
+            (Some(base), Some(content)) => {
+                Some(overlay::Group::with_children(vec![base, content]).overlay())
+            }
+            (Some(base), None) => Some(base),
+            (None, Some(content)) => Some(content),
+            (None, None) => None,
+        }
     }
 }
 

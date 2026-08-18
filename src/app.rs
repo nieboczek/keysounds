@@ -4,7 +4,10 @@ use crate::app::{
     gui::Theme,
     keybind_listener::KeybindListener,
 };
-use cpal::traits::{DeviceTrait, HostTrait};
+use cpal::{
+    Device,
+    traits::{DeviceTrait, HostTrait},
+};
 use iced::widget::svg;
 use rand::rngs::ThreadRng;
 use serde::{Deserialize, Serialize};
@@ -31,12 +34,46 @@ pub struct App {
     rng: ThreadRng,
     filter_chain: Arc<Mutex<FilterChain>>,
 
-    // GUI
+    // GUI - Audio Settings
+    input_devices: Vec<DeviceOption>,
+    output_devices: Vec<DeviceOption>,
+    mic_device: DeviceOption,
+    out_device: DeviceOption,
+    virtual_out_device: DeviceOption,
+
+    // GUI - Main
     theme: Theme,
     svgs: Svgs,
     page: Page,
     search: String,
     selected_preset: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct DeviceOption {
+    pub device: Device,
+    label: String,
+}
+
+impl DeviceOption {
+    fn new(device: Device, label: impl ToString) -> Self {
+        Self {
+            device,
+            label: label.to_string(),
+        }
+    }
+}
+
+impl PartialEq for DeviceOption {
+    fn eq(&self, other: &Self) -> bool {
+        self.device == other.device
+    }
+}
+
+impl std::fmt::Display for DeviceOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.label)
+    }
 }
 
 pub struct Svgs {
@@ -82,56 +119,116 @@ struct PlayingSound {
 }
 
 impl App {
-    pub fn device_desc_to_name(desc: cpal::DeviceDescription) -> String {
-        format!("{} ({})", desc.name(), desc.driver().unwrap())
+    fn select_host() -> cpal::Host {
+        // Prefer PulseAudio (e.g. PipeWire's pulse server) for clean device
+        // enumeration and friendly names; fall back to ALSA.
+        cpal::host_from_id(cpal::HostId::PulseAudio).unwrap_or_else(|_| cpal::default_host())
+    }
+
+    fn is_monitor_source(device: &Device) -> bool {
+        device.id().is_ok_and(|id| id.id().ends_with(".monitor"))
+    }
+
+    fn device_label(device: &Device) -> String {
+        device
+            .description()
+            .map(|desc| desc.name().to_string())
+            .unwrap_or_else(|_| device.to_string())
+    }
+
+    fn resolve_device(devices: &[DeviceOption], config_name: &str, kind: &str) -> DeviceOption {
+        let fallback = || devices.first().cloned().expect("No devices present");
+        if config_name == "default" {
+            return fallback();
+        }
+
+        devices
+            .iter()
+            .find(|option| {
+                option.device.id().is_ok_and(|id| id.id() == config_name)
+                    || option
+                        .device
+                        .description()
+                        .is_ok_and(|desc| desc.name() == config_name)
+            })
+            .cloned()
+            .unwrap_or_else(|| {
+                tracing::warn!(
+                    "{kind} device \"{config_name}\" not found, using the system default"
+                );
+                fallback()
+            })
     }
 
     pub fn new() -> App {
         let config = Self::load_config_result();
         let decoder = Arc::new(Mutex::new(None));
         let decoder_pos = Arc::new(AtomicU64::new(u64::MAX));
-        let host = cpal::default_host();
+        let host = Self::select_host();
 
-        let Some(mic_device) = host.input_devices().unwrap().find(|device| {
-            device
-                .description()
-                .is_ok_and(|desc| desc.name() == config.input_device)
-        }) else {
-            panic!(
-                "Could not find input device in list:\n{:?}",
-                host.input_devices()
-                    .unwrap()
-                    .map(|d| d.description().unwrap().name().to_string())
-                    .collect::<Vec<_>>()
-            );
-        };
+        let default_input = host.default_input_device();
+        let default_output = host.default_output_device();
 
-        let out_device = host
-            .default_output_device()
-            .expect("No output devices present");
+        let mut input_devices = Vec::new();
+        if let Some(device) = &default_input {
+            input_devices.push(DeviceOption::new(
+                device.clone(),
+                format!("System Default: {}", Self::device_label(device)),
+            ));
+        }
 
-        let Some(virtual_out_device) = host.output_devices().unwrap().find(|device| {
-            device
-                .description()
-                .is_ok_and(|desc| desc.name() == config.virtual_output_device)
-                || device
+        input_devices.extend(
+            host.input_devices()
+                .unwrap()
+                .filter(|device| !Self::is_monitor_source(device))
+                .map(|device| DeviceOption::new(device.clone(), Self::device_label(&device))),
+        );
+
+        let mut output_devices = Vec::new();
+        if let Some(device) = &default_output {
+            output_devices.push(DeviceOption::new(
+                device.clone(),
+                format!("System Default: {}", Self::device_label(device)),
+            ));
+        }
+
+        output_devices.extend(
+            host.output_devices()
+                .unwrap()
+                .map(|device| DeviceOption::new(device.clone(), Self::device_label(&device))),
+        );
+
+        let mic_device = Self::resolve_device(&input_devices, &config.input_device, "Input");
+        let out_device = Self::resolve_device(&output_devices, &config.output_device, "Output");
+
+        let virtual_out_device = output_devices
+            .iter()
+            .find(|option| {
+                option
+                    .device
                     .id()
                     .is_ok_and(|id| id.id() == config.virtual_output_device)
-        }) else {
-            panic!(
-                "Could not find output device '{}' in list:\n{:?}",
-                config.virtual_output_device,
-                host.output_devices()
-                    .unwrap()
-                    .map(|d| format!("{} ({})", d.description().unwrap().name(), d.id().unwrap()))
-                    .collect::<Vec<_>>()
-            );
-        };
+                    || option
+                        .device
+                        .description()
+                        .is_ok_and(|desc| desc.name() == config.virtual_output_device)
+            })
+            .cloned()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Could not find output device '{}' in list:\n{:?}",
+                    config.virtual_output_device,
+                    output_devices
+                        .iter()
+                        .map(|option| format!("{} ({})", option.label, option.device.id().unwrap()))
+                        .collect::<Vec<_>>()
+                );
+            });
 
         let (filter_chain, sample_rate, keep_alive) = Self::create_streams(
-            &mic_device,
-            &out_device,
-            &virtual_out_device,
+            &mic_device.device,
+            &out_device.device,
+            &virtual_out_device.device,
             Arc::clone(&decoder),
             Arc::clone(&decoder_pos),
         );
@@ -154,6 +251,12 @@ impl App {
             config,
             rng: rand::rng(),
             filter_chain,
+
+            input_devices,
+            output_devices,
+            mic_device,
+            out_device,
+            virtual_out_device,
 
             theme: Theme::default(),
             svgs: Svgs {

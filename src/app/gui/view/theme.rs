@@ -1,11 +1,11 @@
 use crate::app::gui::view::Element;
-use iced::{Shadow, widget::space};
+use iced::{Shadow, overlay::menu, widget::space};
 use serde::Deserialize;
 
 mod border;
-mod color_proxy;
+mod color;
 
-pub use self::{border::Border, color_proxy::Color};
+pub use self::{border::Border, color::Color};
 
 pub const MISSING_COLOR: Color = Color::from_rgb(1.0, 0.0, 1.0);
 
@@ -86,6 +86,9 @@ pub struct PlayerOverlay {
 #[derive(Deserialize, Clone, Copy)]
 pub struct Settings {
     pub names: Color,
+    pub values: Color,
+    pub selected_value: Color,
+    pub value_borders: Border,
 }
 
 impl Default for Theme {
@@ -159,7 +162,12 @@ impl Default for Theme {
                 randomly_triggered_bg: Color::hex(0xfc3c3c),
                 randomly_triggered_border: Border::uncolored(4.0),
             },
-            settings: Settings { names: text },
+            settings: Settings {
+                names: text,
+                values: text,
+                selected_value: bg_light,
+                value_borders: border,
+            },
         }
     }
 }
@@ -230,11 +238,11 @@ macro_rules! impl_catalog_with_status {
         impl $mod_name::Catalog for Theme {
             type Class<'a> = $mod_name::StyleFn<'a, Self>;
 
-            fn default<'a>() -> Self::Class<'a> {
+            fn default<'a>() -> <Self as $mod_name::Catalog>::Class<'a> {
                 Box::new($fn)
             }
 
-            fn style(&self, class: &Self::Class<'_>, status: $mod_name::Status) -> $mod_name::Style {
+            fn style(&self, class: &<Self as $mod_name::Catalog>::Class<'_>, status: $mod_name::Status) -> $mod_name::Style {
                 class(self, status)
             }
         }
@@ -255,6 +263,19 @@ impl_catalog_with_status! {
     text_input => text_input_default,
     slider => slider_default,
     toggler => toggler_default,
+    pick_list => pick_list_default,
+}
+
+impl menu::Catalog for Theme {
+    type Class<'a> = menu::StyleFn<'a, Self>;
+
+    fn default<'a>() -> <Self as menu::Catalog>::Class<'a> {
+        Box::new(menu_default)
+    }
+
+    fn style(&self, class: &<Self as menu::Catalog>::Class<'_>) -> menu::Style {
+        class(self)
+    }
 }
 
 pub fn slider_default(_theme: &Theme, _status: slider::Status) -> slider::Style {
@@ -468,5 +489,26 @@ pub fn toggler_default(_theme: &Theme, _status: toggler::Status) -> toggler::Sty
         text_color: None,
         border_radius: None,
         padding_ratio: 0.0,
+    }
+}
+
+pub fn pick_list_default(theme: &Theme, _status: pick_list::Status) -> pick_list::Style {
+    pick_list::Style {
+        text_color: theme.settings.names.into(),
+        placeholder_color: MISSING_COLOR.into(),
+        handle_color: theme.settings.values.into(),
+        background: theme.bg.into(),
+        border: theme.settings.value_borders.into(),
+    }
+}
+
+pub fn menu_default(theme: &Theme) -> menu::Style {
+    menu::Style {
+        background: theme.bg.into(),
+        border: theme.settings.value_borders.into(),
+        text_color: theme.settings.values.into(),
+        selected_text_color: theme.settings.values.into(),
+        selected_background: theme.settings.selected_value.into(),
+        shadow: Shadow::default(),
     }
 }
