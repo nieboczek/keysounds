@@ -9,11 +9,10 @@ use cpal::{
     traits::{DeviceTrait, HostTrait},
 };
 use iced::widget::svg;
-use rand::rngs::ThreadRng;
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{Arc, Mutex, atomic::AtomicU64},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 pub mod audio;
@@ -24,14 +23,11 @@ pub mod keybind_listener;
 pub struct App {
     _keep_alive: audio::KeepAlive,
     keybind_listener: KeybindListener,
-    sound_triggering: bool,
-    sound_triggering_deadline: Instant,
     playing_sound: Option<PlayingSound>,
     target_sample_rate: u32,
     decoder: Arc<Mutex<Option<AudioDecoder>>>,
     decoder_pos: Arc<AtomicU64>,
     config: Config,
-    rng: ThreadRng,
     filter_chain: Arc<Mutex<FilterChain>>,
 
     // GUI - Audio Settings
@@ -242,14 +238,11 @@ impl App {
         App {
             _keep_alive: keep_alive,
             keybind_listener: KeybindListener::new(),
-            sound_triggering: false,
-            sound_triggering_deadline: Instant::now(),
             playing_sound: None,
             target_sample_rate: sample_rate,
             decoder,
             decoder_pos,
             config,
-            rng: rand::rng(),
             filter_chain,
 
             input_devices,

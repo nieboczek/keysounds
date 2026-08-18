@@ -10,7 +10,6 @@ serde = { version = "1", features = ["derive"] }
 rdev = "0.5"
 toml = "1"
 cpal = { version = "0.18", features = ["pulseaudio"] }
-rand = "0.10"
 ringbuf = "0.5"
 dirs = "6"
 pastey = "0.2"

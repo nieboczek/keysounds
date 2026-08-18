@@ -33,8 +33,6 @@ pub struct Config {
     pub search_and_play_keybind: Option<Keybind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop_sound_keybind: Option<Keybind>,
-    pub sound_triggering_interval_range: (f32, f32),
-    pub sound_triggering_sound_list: Vec<String>,
     pub filter_presets: Vec<FilterPreset>,
     pub sounds: Vec<Sound>,
 }
@@ -61,8 +59,6 @@ impl App {
                     output_device: String::new(),
                     virtual_output_device: String::from("CABLE Input (VB-Audio Virtual Cable)"),
                     gui_scale: 1.0,
-                    sound_triggering_interval_range: (600.0, 900.0),
-                    sound_triggering_sound_list: Vec::new(),
                     search_and_play_keybind: Some(Keybind {
                         ctrl: true,
                         alt: true,

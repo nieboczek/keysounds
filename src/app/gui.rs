@@ -7,12 +7,7 @@ use iced::{
     keyboard::{self, Modifiers},
     time,
 };
-use rand::RngExt;
-use std::{
-    path::Path,
-    sync::atomic::Ordering,
-    time::{Duration, Instant},
-};
+use std::{path::Path, sync::atomic::Ordering, time::Duration};
 
 mod view;
 
@@ -131,7 +126,6 @@ impl App {
             }
         }
 
-        self.trigger_sound_randomly();
         self.handle_keybinds();
 
         if self.playing_sound.is_some() && self.decoder_pos.load(Ordering::Relaxed) == u64::MAX {
@@ -200,24 +194,6 @@ impl App {
                     break;
                 }
             }
-        }
-    }
-
-    fn trigger_sound_randomly(&mut self) {
-        if self.sound_triggering && self.sound_triggering_deadline <= Instant::now() {
-            let range = 0..self.config.sound_triggering_sound_list.len();
-            let idx = self.rng.random_range(range);
-            let name = &self.config.sound_triggering_sound_list[idx];
-            let sound = self.config.sounds.iter().find(|sound| &sound.name == name);
-
-            if let Some(sound) = sound {
-                self.play_sound(sound.clone(), true);
-            }
-
-            let min = self.config.sound_triggering_interval_range.0;
-            let max = self.config.sound_triggering_interval_range.1;
-            self.sound_triggering_deadline +=
-                Duration::from_secs_f32(self.rng.random_range(min..=max));
         }
     }
 
