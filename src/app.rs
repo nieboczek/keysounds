@@ -1,7 +1,7 @@
 use crate::app::{
     audio::{AudioDecoder, FilterChain},
     config::Config,
-    gui::Theme,
+    gui::{KeybindTarget, Theme},
     keybind_listener::KeybindListener,
 };
 use cpal::{
@@ -43,6 +43,7 @@ pub struct App {
     page: Page,
     search: String,
     selected_preset: usize,
+    recording_keybind: Option<KeybindTarget>,
 }
 
 #[derive(Clone, Debug)]
@@ -76,6 +77,7 @@ pub struct Svgs {
     stop: svg::Handle,
     drag_handle: svg::Handle,
     expand_arrow: svg::Handle,
+    x: svg::Handle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,10 +258,12 @@ impl App {
                 stop: include_svg!("../assets/stop.svg"),
                 drag_handle: include_svg!("../assets/drag-handle.svg"),
                 expand_arrow: include_svg!("../assets/expand-arrow.svg"),
+                x: include_svg!("../assets/x.svg"),
             },
             page: Page::Sounds,
             search: String::new(),
             selected_preset: 0,
+            recording_keybind: None,
         }
     }
 

@@ -87,7 +87,10 @@ pub struct PlayerOverlay {
 pub struct Settings {
     pub names: Color,
     pub values: Color,
-    pub selected_value: Color,
+    pub value_bg: Color,
+    pub selected_value_bg: Color,
+    pub icons: Color,
+    pub icons_hovered: Color,
     pub value_borders: Border,
 }
 
@@ -165,7 +168,10 @@ impl Default for Theme {
             settings: Settings {
                 names: text,
                 values: text,
-                selected_value: bg_light,
+                value_bg: bg_light,
+                selected_value_bg: bg_lighter,
+                icons: text_darker,
+                icons_hovered: text_dark,
                 value_borders: border,
             },
         }
@@ -332,6 +338,15 @@ pub fn svg_filter(theme: &Theme, status: svg::Status) -> svg::Style {
     }
 }
 
+pub fn svg_keybind_x(theme: &Theme, status: svg::Status) -> svg::Style {
+    svg::Style {
+        color: match status {
+            svg::Status::Idle => theme.settings.icons.into(),
+            svg::Status::Hovered => theme.settings.icons_hovered.into(),
+        },
+    }
+}
+
 pub fn svg_stop(theme: &Theme, _status: svg::Status) -> svg::Style {
     svg::Style {
         color: theme.player_overlay.stop_icon.into(),
@@ -439,6 +454,24 @@ pub fn button_stop(theme: &Theme, status: button::Status) -> button::Style {
     }
 }
 
+pub fn button_setting_value(theme: &Theme, _status: button::Status) -> button::Style {
+    button::Style {
+        text_color: theme.settings.values.into(),
+        background: theme.settings.value_bg.into(),
+        border: theme.settings.value_borders.into(),
+        ..Default::default()
+    }
+}
+
+pub fn button_setting_recording(theme: &Theme, _status: button::Status) -> button::Style {
+    button::Style {
+        text_color: theme.settings.values.into(),
+        background: theme.settings.selected_value_bg.into(),
+        border: theme.settings.value_borders.into(),
+        ..Default::default()
+    }
+}
+
 pub fn button_sound(theme: &Theme, status: button::Status) -> button::Style {
     button::Style {
         text_color: theme.text.into(),
@@ -497,18 +530,18 @@ pub fn pick_list_default(theme: &Theme, _status: pick_list::Status) -> pick_list
         text_color: theme.settings.names.into(),
         placeholder_color: MISSING_COLOR.into(),
         handle_color: theme.settings.values.into(),
-        background: theme.bg.into(),
+        background: theme.settings.value_bg.into(),
         border: theme.settings.value_borders.into(),
     }
 }
 
 pub fn menu_default(theme: &Theme) -> menu::Style {
     menu::Style {
-        background: theme.bg.into(),
+        background: theme.settings.value_bg.into(),
         border: theme.settings.value_borders.into(),
         text_color: theme.settings.values.into(),
         selected_text_color: theme.settings.values.into(),
-        selected_background: theme.settings.selected_value.into(),
+        selected_background: theme.settings.selected_value_bg.into(),
         shadow: Shadow::default(),
     }
 }

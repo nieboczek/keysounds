@@ -18,6 +18,12 @@ pub const SCALES: [f32; 23] = [
     2.8, 3.0, 3.5, 4.0,
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeybindTarget {
+    SearchAndPlay,
+    StopSound,
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
     Tick,
@@ -37,6 +43,10 @@ pub enum Message {
     SetOutDevice(DeviceOption),
     SetVirtualOutDevice(DeviceOption),
     SetGuiScale(f32),
+    // Keybinds
+    StartRecordingKeybind(KeybindTarget),
+    CancelRecordingKeybind,
+    ClearKeybind(KeybindTarget),
 }
 
 impl App {
@@ -68,7 +78,10 @@ impl App {
                 _ => {}
             },
             Message::Keyboard(_) => {}
-            Message::ChangePage(page) => self.page = page,
+            Message::ChangePage(page) => {
+                self.recording_keybind = None;
+                self.page = page;
+            }
             Message::PlaySound(index) => {
                 if let Some(sound) = self.config.sounds.get(index) {
                     self.play_sound(sound.clone(), false);
@@ -124,6 +137,15 @@ impl App {
             Message::SetGuiScale(scale) => {
                 self.config.gui_scale = scale;
             }
+            Message::StartRecordingKeybind(target) => self.recording_keybind = Some(target),
+            Message::CancelRecordingKeybind => self.recording_keybind = None,
+            Message::ClearKeybind(target) => {
+                let keybind = match target {
+                    KeybindTarget::SearchAndPlay => &mut self.config.search_and_play_keybind,
+                    KeybindTarget::StopSound => &mut self.config.stop_sound_keybind,
+                };
+                *keybind = None;
+            }
         }
 
         self.handle_keybinds();
@@ -175,6 +197,16 @@ impl App {
         let Some(keybind) = self.keybind_listener.try_recv() else {
             return;
         };
+
+        if let Some(target) = self.recording_keybind {
+            let slot = match target {
+                KeybindTarget::SearchAndPlay => &mut self.config.search_and_play_keybind,
+                KeybindTarget::StopSound => &mut self.config.stop_sound_keybind,
+            };
+            *slot = Some(keybind);
+            self.recording_keybind = None;
+            return;
+        }
 
         if matches_keybind(keybind, self.config.stop_sound_keybind) {
             *self.decoder.lock().unwrap() = None;
