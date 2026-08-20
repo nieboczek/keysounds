@@ -84,10 +84,10 @@ filter_types! {
         cutoff: f32,
     },
     Shittify {
-        #[prop("Strength", 10)]
-        strength: i32,
-        #[prop("Cutoff", 10000)]
-        cutoff: i32,
+        #[prop("Strength", 12)]
+        strength: f32,
+        #[prop("Cutoff", 0.65)]
+        cutoff: f32,
     },
     Reverb {
         #[prop("Room Size", 0.8)]

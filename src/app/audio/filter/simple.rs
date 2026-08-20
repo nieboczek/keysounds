@@ -1,13 +1,16 @@
 use crate::app::audio::{AudioProcessor, ProcessContext};
 
 pub(super) struct Shittify {
-    strength: i32,
-    cutoff: i32,
+    strength: f32,
+    cutoff: f32,
 }
 
 impl Shittify {
-    pub(super) fn new(strength: i32, cutoff: i32) -> Self {
-        Shittify { strength, cutoff }
+    pub(super) fn new(strength: f32, cutoff: f32) -> Self {
+        Shittify {
+            strength,
+            cutoff: cutoff * i16::MAX as f32,
+        }
     }
 
     #[inline]
@@ -16,10 +19,10 @@ impl Shittify {
         let sample_i16 = (sample * i16::MAX as f32) as i16;
 
         // BOOST THE AUDIO strength TIMES and then CLIP IT A LOT
-        let distorted = (sample_i16 as i32 * self.strength).clamp(-self.cutoff, self.cutoff) as i16;
+        let distorted = (sample_i16 as f32 * self.strength).clamp(-self.cutoff, self.cutoff) as i16;
 
-        // QUIETER AUDIO 2 TIMES and cast to f32
-        (distorted / 2) as f32 / i16::MAX as f32
+        // cast to f32
+        distorted as f32 / i16::MAX as f32
     }
 }
 
