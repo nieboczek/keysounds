@@ -112,7 +112,7 @@ impl App {
             }
         }
 
-        let scales = crate::app::gui::SCALES.map(|x| ScaleWrapper(x));
+        let scales = crate::app::gui::SCALES.map(ScaleWrapper);
 
         row([
             Self::setting_name("GUI Scale"),

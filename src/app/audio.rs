@@ -21,9 +21,7 @@ pub(super) type KeepAlive = (Stream, Stream, Stream);
 const CHANNELS: usize = 2;
 const BLOCK_FRAMES: usize = 512;
 const BLOCK_SAMPLES: usize = BLOCK_FRAMES * CHANNELS;
-
-const RING_BLOCKS: usize = 8;
-const RING_CAPACITY: usize = BLOCK_SAMPLES * RING_BLOCKS;
+const RING_CAPACITY: usize = BLOCK_SAMPLES * 4;
 
 impl App {
     pub(super) fn play_sound(&mut self, sound: Sound, randomly_triggered: bool) {
@@ -54,11 +52,7 @@ impl App {
         device
             .supported_output_configs()
             .ok()?
-            .find(|cfg| {
-                cfg.channels() >= 2
-                    && cfg.min_sample_rate() <= 48_000
-                    && cfg.max_sample_rate() >= 48_000
-            })
+            .find(|cfg| cfg.channels() >= 2 && cfg.contains_rate(48_000))
             .map(|cfg| cfg.with_sample_rate(48_000))
     }
 

@@ -54,26 +54,26 @@ impl App {
         match message {
             Message::Tick => {}
             Message::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => match key {
-                keyboard::Key::Character(c) => {
-                    if (c == "-" || c == "=") && modifiers == Modifiers::COMMAND {
-                        let idx = SCALES
-                            .iter()
-                            .enumerate()
-                            .min_by(|a, b| {
-                                (a.1 - self.config.gui_scale)
-                                    .abs()
-                                    .total_cmp(&(b.1 - self.config.gui_scale).abs())
-                            })
-                            .map(|(i, _)| i)
-                            .unwrap_or(0);
+                keyboard::Key::Character(c)
+                    if (c == "-" || c == "=") && modifiers == Modifiers::COMMAND =>
+                {
+                    let idx = SCALES
+                        .iter()
+                        .enumerate()
+                        .min_by(|a, b| {
+                            (a.1 - self.config.gui_scale)
+                                .abs()
+                                .total_cmp(&(b.1 - self.config.gui_scale).abs())
+                        })
+                        .map(|(i, _)| i)
+                        .unwrap_or(0);
 
-                        let new_idx = if c == "-" {
-                            idx.saturating_sub(1)
-                        } else {
-                            (idx + 1).min(SCALES.len() - 1)
-                        };
-                        self.config.gui_scale = SCALES[new_idx];
-                    }
+                    let new_idx = if c == "-" {
+                        idx.saturating_sub(1)
+                    } else {
+                        (idx + 1).min(SCALES.len() - 1)
+                    };
+                    self.config.gui_scale = SCALES[new_idx];
                 }
                 _ => {}
             },

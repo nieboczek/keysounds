@@ -10,6 +10,7 @@ impl Shittify {
         Shittify { strength, cutoff }
     }
 
+    #[inline]
     fn transform(&self, sample: f32) -> f32 {
         // DROP 16 BITS
         let sample_i16 = (sample * i16::MAX as f32) as i16;

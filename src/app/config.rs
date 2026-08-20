@@ -132,17 +132,17 @@ mod keybind_serde {
                 let part = part.to_ascii_lowercase();
                 if part == "ctrl" {
                     if ctrl {
-                        return Err(format!("Ctrl was already specified"));
+                        return Err("Ctrl was already specified".to_string());
                     }
                     ctrl = true;
                 } else if part == "alt" {
                     if alt {
-                        return Err(format!("Alt was already specified"));
+                        return Err("Alt was already specified".to_string());
                     }
                     alt = true;
                 } else if part == "shift" {
                     if shift {
-                        return Err(format!("Shift was already specified"));
+                        return Err("Shift was already specified".to_string());
                     }
                     shift = true;
                 } else {

@@ -12,7 +12,7 @@ use iced::widget::svg;
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{Arc, Mutex, atomic::AtomicU64},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 pub mod audio;
@@ -117,12 +117,6 @@ struct PlayingSound {
 }
 
 impl App {
-    fn select_host() -> cpal::Host {
-        // Prefer PulseAudio (e.g. PipeWire's pulse server) for clean device
-        // enumeration and friendly names; fall back to ALSA.
-        cpal::host_from_id(cpal::HostId::PulseAudio).unwrap_or_else(|_| cpal::default_host())
-    }
-
     fn is_monitor_source(device: &Device) -> bool {
         device.id().is_ok_and(|id| id.id().ends_with(".monitor"))
     }
@@ -158,11 +152,13 @@ impl App {
             })
     }
 
+    #[expect(clippy::new_without_default)]
     pub fn new() -> App {
+        let start_instant = Instant::now();
         let config = Self::load_config_result();
         let decoder = Arc::new(Mutex::new(None));
         let decoder_pos = Arc::new(AtomicU64::new(u64::MAX));
-        let host = Self::select_host();
+        let host = cpal::default_host();
 
         let default_input = host.default_input_device();
         let default_output = host.default_output_device();
@@ -237,7 +233,7 @@ impl App {
             };
         }
 
-        App {
+        let app = App {
             _keep_alive: keep_alive,
             keybind_listener: KeybindListener::new(),
             playing_sound: None,
@@ -264,7 +260,9 @@ impl App {
             search: String::new(),
             selected_preset: 0,
             recording_keybind: None,
-        }
+        };
+        tracing::info!("App startup time: {:?}", start_instant.elapsed());
+        app
     }
 
     pub fn theme(&self) -> Theme {
