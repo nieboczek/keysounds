@@ -97,12 +97,15 @@ impl App {
                                     .on_toggle(move |v| Message::ToggleFilter(i, v))
                                     .style(|theme: &Theme, _status: toggler::Status| {
                                         toggler::Style {
-                                            background: theme.filter_presets.toggle_bg.into(),
+                                            background: match filter.enabled {
+                                                true => theme.filter_presets.toggle_bg_on.into(),
+                                                false => theme.filter_presets.toggle_bg_off.into(),
+                                            },
                                             background_border_width: 0.0,
                                             background_border_color: theme::MISSING_COLOR.into(),
                                             foreground: match filter.enabled {
-                                                true => theme.filter_presets.toggle_on.into(),
-                                                false => theme.filter_presets.toggle_off.into(),
+                                                true => theme.filter_presets.toggle_fg_on.into(),
+                                                false => theme.filter_presets.toggle_fg_off.into(),
                                             },
                                             foreground_border_width: 0.0,
                                             foreground_border_color: theme::MISSING_COLOR.into(),
