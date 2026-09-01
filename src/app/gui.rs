@@ -134,9 +134,7 @@ impl App {
                 self.virtual_out_device = device;
                 // TODO: actually like reconnect the audio loop and shit
             }
-            Message::SetGuiScale(scale) => {
-                self.config.gui_scale = scale;
-            }
+            Message::SetGuiScale(scale) => self.config.gui_scale = scale,
             Message::StartRecordingKeybind(target) => self.recording_keybind = Some(target),
             Message::CancelRecordingKeybind => self.recording_keybind = None,
             Message::ClearKeybind(target) => {

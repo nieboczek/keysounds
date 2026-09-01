@@ -7,8 +7,8 @@ use crate::app::{
     },
 };
 use iced::{
-    Alignment, Length,
-    widget::{button, column, container, pick_list, row, svg, text},
+    Alignment,
+    widget::{button, column, pick_list, row, space, svg, text},
 };
 use std::iter;
 
@@ -97,7 +97,8 @@ impl App {
 
         row([
             Self::setting_name(name),
-            container(record_button).align_right(Length::Fill).into(),
+            space::horizontal().into(),
+            record_button.into(),
         ])
         .into()
     }
@@ -116,12 +117,12 @@ impl App {
 
         row([
             Self::setting_name("GUI Scale"),
-            container(pick_list(
+            space::horizontal().into(),
+            pick_list(
                 scales,
                 Some(ScaleWrapper(self.config.gui_scale)),
                 |wrapper| Message::SetGuiScale(wrapper.0),
-            ))
-            .align_right(Length::Fill)
+            )
             .into(),
         ])
         .into()
@@ -136,9 +137,8 @@ impl App {
     ) -> Element<'a> {
         row([
             Self::setting_name(name),
-            container(pick_list(options, Some(selected), on_select))
-                .align_right(Length::Fill)
-                .into(),
+            space::horizontal().into(),
+            pick_list(options, Some(selected), on_select).into(),
         ])
         .into()
     }
