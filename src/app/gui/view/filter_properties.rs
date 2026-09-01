@@ -47,9 +47,12 @@ impl App {
     }
 
     fn f32_slider(&self, ctx: Ctx, val: f32) -> Element<'_> {
+        let step = ctx.prop.step_f32();
+
         slider(ctx.prop.range_f32(), val, move |v| {
             ctx.create_change_message(PropVal::F32(v))
         })
+        .step(step)
         .into()
     }
 

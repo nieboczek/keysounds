@@ -3,7 +3,16 @@ use serde::{Deserialize, Serialize};
 // Least cursed Rust macro
 macro_rules! filter_types {
     // TODO: use $default for something
-    ( $( $filter:ident { $( #[prop($name:literal, $default:expr, $range:expr)] $prop:ident : $type:ty , )* } , )* ) => {
+    (
+        $(
+        $filter:ident {
+            $(
+            #[prop($name:literal, $default:expr, $range:expr, step=$step:expr)]
+            $prop:ident : $type:ty ,
+            )*
+        },
+        )*
+    ) => {
         #[derive(Debug, Clone, Serialize, Deserialize)]
         #[serde(rename_all = "snake_case")]
         pub enum FilterType {
@@ -62,6 +71,16 @@ macro_rules! filter_types {
                 }
             }
 
+            pub fn step_f32(&self) -> f32 {
+                pastey::paste! {
+                match self.id {
+                    $( $(
+                        _PropertyId::[<$filter $prop:camel>] => $step,
+                    )* )*
+                }
+                }
+            }
+
             pub fn set(&self, filter: &mut FilterType) {
                 pastey::paste! {
                 match (self.id, self.val, filter) {
@@ -87,24 +106,24 @@ macro_rules! filter_types {
 
 filter_types! {
     BassBoost {
-        #[prop("Gain", 0.0, -20.0..=20.0)]
+        #[prop("Gain", 0.0, -20.0..=20.0, step=0.5)]
         gain: f32,
-        // TODO: cutoff range and default value might need adjustment
-        #[prop("Cutoff", 10000.0, -30000.0..=30000.0)]
+        // TODO: the cutoff default value, range, and step might need adjustment
+        #[prop("Cutoff", 10000.0, -30000.0..=30000.0, step=500.0)]
         cutoff: f32,
     },
     Shittify {
-        #[prop("Strength", 12.0, 1.0..=36.0)]
+        #[prop("Strength", 12.0, 1.0..=36.0, step=0.5)]
         strength: f32,
-        #[prop("Cutoff", 0.65, 0.1..=1.0)]
+        #[prop("Cutoff", 0.65, 0.1..=1.0, step=0.01)]
         cutoff: f32,
     },
     Reverb {
-        #[prop("Room Size", 0.8, 0.0..=1.0)]
+        #[prop("Room Size", 0.8, 0.0..=1.0, step=0.01)]
         room_size: f32,
-        #[prop("Damping", 0.2, 0.0..=1.0)]
+        #[prop("Damping", 0.2, 0.0..=1.0, step=0.01)]
         damping: f32,
-        #[prop("Wet", 0.3, 0.0..=1.0)]
+        #[prop("Wet", 0.3, 0.0..=1.0, step=0.01)]
         wet: f32,
     },
 }
