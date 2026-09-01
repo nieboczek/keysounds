@@ -64,6 +64,8 @@ pub struct FilterPresets {
     pub toggle_off: Color,
     pub property_names: Color,
     pub property_values: Color,
+    pub property_slider_bg: Color,
+    pub property_slider_head: Color,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -149,6 +151,8 @@ impl Default for Theme {
                 toggle_off: text_dark,
                 property_names: text_dark,
                 property_values: text_dark,
+                property_slider_bg: bg_lighter,
+                property_slider_head: text,
             },
             player_overlay: PlayerOverlay {
                 bg: bg_light,
@@ -284,21 +288,21 @@ impl menu::Catalog for Theme {
     }
 }
 
-pub fn slider_default(_theme: &Theme, _status: slider::Status) -> slider::Style {
+pub fn slider_default(theme: &Theme, _status: slider::Status) -> slider::Style {
     slider::Style {
         rail: slider::Rail {
             backgrounds: (
-                Color::from_rgb(0.0, 0.0, 0.0).into(),
-                Color::from_rgb(0.0, 0.0, 0.0).into(),
+                theme.filter_presets.property_slider_bg.into(),
+                theme.filter_presets.property_slider_bg.into(),
             ),
             width: 4.0,
             border: Border::none().into(),
         },
         handle: slider::Handle {
-            shape: slider::HandleShape::Circle { radius: 4.0 },
-            background: Color::from_rgb(0.0, 0.0, 0.0).into(),
+            shape: slider::HandleShape::Circle { radius: 6.0 },
+            background: theme.filter_presets.property_slider_head.into(),
             border_width: 0.0,
-            border_color: Color::from_rgb(0.0, 0.0, 0.0).into(),
+            border_color: MISSING_COLOR.into(),
         },
     }
 }
