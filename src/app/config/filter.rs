@@ -7,7 +7,7 @@ macro_rules! filter_types {
         $(
         $filter:ident {
             $(
-            #[prop($name:literal, $default:expr, $range:expr, step=$step:expr)]
+            #[prop($name:literal, $default:expr, $range:expr, step=$step:expr, fmt=$fmt:literal)]
             $prop:ident : $type:ty ,
             )*
         },
@@ -64,9 +64,7 @@ macro_rules! filter_types {
             pub fn range_f32(&self) -> std::ops::RangeInclusive<f32> {
                 pastey::paste! {
                 match self.id {
-                    $( $(
-                    _PropertyId::[<$filter $prop:camel>] => $range,
-                    )* )*
+                    $( $( _PropertyId::[<$filter $prop:camel>] => $range, )* )*
                 }
                 }
             }
@@ -74,9 +72,22 @@ macro_rules! filter_types {
             pub fn step_f32(&self) -> f32 {
                 pastey::paste! {
                 match self.id {
+                    $( $( _PropertyId::[<$filter $prop:camel>] => $step, )* )*
+                }
+                }
+            }
+
+            pub fn fmt(&self) -> String {
+                pastey::paste! {
+                match (self.id, self.val) {
                     $( $(
-                        _PropertyId::[<$filter $prop:camel>] => $step,
+                    (
+                        _PropertyId::[<$filter $prop:camel>],
+                        PropVal::[<$type:camel>](val),
+                    ) => format!($fmt, val),
                     )* )*
+
+                    (id, val) => panic!("Invalid combination of: id = {id:?}, val = {val:?}"),
                 }
                 }
             }
@@ -89,9 +100,7 @@ macro_rules! filter_types {
                         _PropertyId::[<$filter $prop:camel>],
                         PropVal::[<$type:camel>](target),
                         FilterType::$filter { $prop, .. },
-                    ) => {
-                        *$prop = target;
-                    }
+                    ) => *$prop = target,
                     )* )*
 
                     (id, val, filter_type) => {
@@ -106,24 +115,24 @@ macro_rules! filter_types {
 
 filter_types! {
     BassBoost {
-        #[prop("Gain", 0.0, -20.0..=20.0, step=0.5)]
+        #[prop("Gain", 0.0, -20.0..=20.0, step=0.5, fmt="{:.1}")]
         gain: f32,
         // TODO: the cutoff default value, range, and step might need adjustment
-        #[prop("Cutoff", 10000.0, -30000.0..=30000.0, step=500.0)]
+        #[prop("Cutoff", 10000.0, -30000.0..=30000.0, step=500.0, fmt="{:.0}")]
         cutoff: f32,
     },
     Shittify {
-        #[prop("Strength", 12.0, 1.0..=36.0, step=0.5)]
+        #[prop("Strength", 12.0, 1.0..=36.0, step=0.5, fmt="{:.1}")]
         strength: f32,
-        #[prop("Cutoff", 0.65, 0.1..=1.0, step=0.01)]
+        #[prop("Cutoff", 0.65, 0.1..=1.0, step=0.01, fmt="{:.2}")]
         cutoff: f32,
     },
     Reverb {
-        #[prop("Room Size", 0.8, 0.0..=1.0, step=0.01)]
+        #[prop("Room Size", 0.8, 0.0..=1.0, step=0.01, fmt="{:.2}")]
         room_size: f32,
-        #[prop("Damping", 0.2, 0.0..=1.0, step=0.01)]
+        #[prop("Damping", 0.2, 0.0..=1.0, step=0.01, fmt="{:.2}")]
         damping: f32,
-        #[prop("Wet", 0.3, 0.0..=1.0, step=0.01)]
+        #[prop("Wet", 0.3, 0.0..=1.0, step=0.01, fmt="{:.2}")]
         wet: f32,
     },
 }

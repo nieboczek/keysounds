@@ -25,19 +25,12 @@ impl App {
                 PropVal::I32(val) => self.i32_slider(ctx, val),
             };
 
-            let value_text = match prop.val {
-                PropVal::F32(val) => text(val)
-                    .style(theme::text_filter_property_value)
-                    .size(14)
-                    .into(),
-                PropVal::I32(val) => text(val)
-                    .style(theme::text_filter_property_value)
-                    .size(14)
-                    .into(),
-            };
+            let value_text = text(prop.fmt())
+                .style(theme::text_filter_property_value)
+                .size(14);
 
             column([
-                row([name.into(), space::horizontal().into(), value_text]).into(),
+                row([name.into(), space::horizontal().into(), value_text.into()]).into(),
                 changer,
             ])
             .into()
