@@ -6,10 +6,7 @@ use crate::app::{
         view::{Element, theme},
     },
 };
-use iced::{
-    Alignment,
-    widget::{column, row, slider, text},
-};
+use iced::widget::{column, row, slider, space, text};
 
 impl App {
     pub(super) fn filter_properties<'a>(&'a self, i: usize, filter: &'a FilterType) -> Element<'a> {
@@ -39,10 +36,11 @@ impl App {
                     .into(),
             };
 
-            row([name.into(), changer, value_text])
-                .align_y(Alignment::Center)
-                .spacing(4)
-                .into()
+            column([
+                row([name.into(), space::horizontal().into(), value_text]).into(),
+                changer,
+            ])
+            .into()
         }))
         .spacing(4)
         .into()
