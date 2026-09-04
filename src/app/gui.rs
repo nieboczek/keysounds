@@ -1,6 +1,6 @@
 use crate::app::{
     App, DeviceOption, Page, Sound,
-    config::{Keybind, filter::FilterProperty},
+    config::{FilterPreset, Keybind, filter::FilterProperty},
 };
 use iced::{
     Subscription, Task,
@@ -34,6 +34,7 @@ pub enum Message {
     SearchInput(String),
     SearchSubmit,
     // Filter Chain
+    AddPreset,
     SelectPreset(usize),
     ToggleFilter(usize, bool),
     ExpandFilter(usize),
@@ -109,6 +110,13 @@ impl App {
                         self.play_sound(sound, false);
                     }
                 }
+            }
+            Message::AddPreset => {
+                self.config.filter_presets.push(FilterPreset {
+                    name: "New preset".to_string(),
+                    keybind: None,
+                    filters: Vec::new(),
+                });
             }
             Message::SelectPreset(idx) => self.selected_preset = idx,
             Message::ToggleFilter(idx, v) => {

@@ -14,53 +14,74 @@ use std::iter;
 
 impl App {
     pub(super) fn filter_chain_page(&self) -> Element<'_> {
-        let presets =
-            scrollable(
-                max_content_column(self.config.filter_presets.iter().enumerate().map(
-                    |(i, preset)| {
-                        button(
-                            column([
-                                text(&preset.name).into(),
-                                text(Self::create_filter_summary(&preset.filters))
-                                    .style(theme::text_filter_preset_effects)
-                                    .size(14)
-                                    .into(),
-                                text(preset.keybind.to_string())
-                                    .style(theme::text_filter_preset_keybind)
-                                    .size(14)
-                                    .into(),
-                            ])
-                            .spacing(4),
-                        )
-                        .width(Length::Fill)
-                        .on_press(Message::SelectPreset(i))
-                        .style(move |theme: &Theme, status: button::Status| {
-                            let active = self.selected_preset == i;
-                            button::Style {
-                                text_color: theme.text.into(),
-                                background: match status {
-                                    _ if active => theme.filter_presets.bg_active.into(),
-                                    button::Status::Hovered | button::Status::Pressed => {
-                                        theme.filter_presets.bg_hovered.into()
-                                    }
-                                    _ => theme.filter_presets.bg.into(),
-                                },
-                                border: match status {
-                                    _ if active => theme.filter_presets.border_active.into(),
-                                    button::Status::Hovered | button::Status::Pressed => {
-                                        theme.filter_presets.border_hovered.into()
-                                    }
-                                    _ => theme.filter_presets.border.into(),
-                                },
-                                ..Default::default()
+        let presets = self
+            .config
+            .filter_presets
+            .iter()
+            .enumerate()
+            .map(|(i, preset)| {
+                button(
+                    column(
+                        [
+                            text(&preset.name).into(),
+                            text(Self::create_filter_summary(&preset.filters))
+                                .style(theme::text_filter_preset_effects)
+                                .size(14)
+                                .into(),
+                        ]
+                        .into_iter()
+                        .chain(preset.keybind.map(|keybind| {
+                            text(keybind.to_string())
+                                .style(theme::text_filter_preset_keybind)
+                                .size(14)
+                                .into()
+                        })),
+                    )
+                    .spacing(4),
+                )
+                .width(Length::Fill)
+                .on_press(Message::SelectPreset(i))
+                .style(move |theme: &Theme, status: button::Status| {
+                    let active = self.selected_preset == i;
+                    button::Style {
+                        text_color: theme.text.into(),
+                        background: match status {
+                            _ if active => theme.filter_presets.bg_active.into(),
+                            button::Status::Hovered | button::Status::Pressed => {
+                                theme.filter_presets.bg_hovered.into()
                             }
-                        })
-                        .into()
-                    },
-                ))
-                .spacing(4),
-            );
+                            _ => theme.filter_presets.bg.into(),
+                        },
+                        border: match status {
+                            _ if active => theme.filter_presets.border_active.into(),
+                            button::Status::Hovered | button::Status::Pressed => {
+                                theme.filter_presets.border_hovered.into()
+                            }
+                            _ => theme.filter_presets.border.into(),
+                        },
+                        ..Default::default()
+                    }
+                })
+                .into()
+            })
+            .chain(iter::once(
+                button(text("+ Add preset").center())
+                    .on_press(Message::AddPreset)
+                    .style(|theme: &Theme, status: button::Status| button::Style {
+                        text_color: theme.filter_presets.add_preset_text.into(),
+                        // TODO(1.0): add dashed border when iced adds it or idk patch it in before 1.0
+                        border: match status {
+                            button::Status::Hovered | button::Status::Pressed => {
+                                theme.filter_presets.border_hovered.into()
+                            }
+                            _ => theme.filter_presets.border.into(),
+                        },
+                        ..Default::default()
+                    })
+                    .into(),
+            ));
 
+        let presets = scrollable(max_content_column(presets).spacing(4));
         let filters = scrollable(
             column(
                 self.config.filter_presets[self.selected_preset]
