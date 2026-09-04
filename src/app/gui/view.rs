@@ -6,7 +6,7 @@ use iced::{
     Length,
     widget::{button, column, container, progress_bar, row, space, svg, text},
 };
-use std::{iter, sync::atomic::Ordering, time::Duration};
+use std::{sync::atomic::Ordering, time::Duration};
 
 mod filter_presets;
 mod filter_properties;
@@ -87,15 +87,7 @@ impl App {
 
         let player = container(
             column([
-                row(iter::once(text(sound_name).size(20).into()).chain(
-                    match playing_sound.randomly_triggered {
-                        true => Some(Self::randomly_triggered_badge()),
-                        false => None,
-                    },
-                ))
-                .align_y(iced::Center)
-                .spacing(8)
-                .into(),
+                text(sound_name).size(20).into(),
                 row([
                     container(text(time_left_str).size(14))
                         .style(theme::container_time)
@@ -123,13 +115,6 @@ impl App {
         .style(theme::container_overlay);
 
         container(player).padding(8).into()
-    }
-
-    fn randomly_triggered_badge() -> Element<'static> {
-        container(text("Randomly Triggered"))
-            .padding(2)
-            .style(theme::container_badge)
-            .into()
     }
 
     fn format_time_left(dur: Duration) -> String {

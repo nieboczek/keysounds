@@ -24,28 +24,21 @@ const BLOCK_SAMPLES: usize = BLOCK_FRAMES * CHANNELS;
 const RING_CAPACITY: usize = BLOCK_SAMPLES * 4;
 
 impl App {
-    pub(super) fn play_sound(&mut self, sound: Sound, randomly_triggered: bool) {
+    pub(super) fn play_sound(&mut self, sound: Sound) {
         let decoder = AudioDecoder::new(&sound.path, self.target_sample_rate, sound.volume);
         let duration = decoder.total_duration().unwrap_or_default();
 
         *self.decoder.lock().unwrap() = Some(decoder);
         self.decoder_pos.store(0, Ordering::Relaxed);
-        self.playing_sound = Some(PlayingSound {
-            duration,
-            sound,
-            randomly_triggered,
-        });
+        self.playing_sound = Some(PlayingSound { duration, sound });
     }
 
     pub(super) fn play_sound_from_path(&mut self, path: String) {
-        self.play_sound(
-            Sound {
-                name: "Sound from path".to_string(),
-                path,
-                volume: 1.0,
-            },
-            false,
-        );
+        self.play_sound(Sound {
+            name: "Sound from path".to_string(),
+            path,
+            volume: 1.0,
+        });
     }
 
     fn try_config_48khz(device: &Device) -> Option<cpal::SupportedStreamConfig> {

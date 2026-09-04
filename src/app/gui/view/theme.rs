@@ -85,8 +85,6 @@ pub struct PlayerOverlay {
     pub progress_bar: Color,
     pub progress_bar_bg: Color,
     pub progress_bar_border: Border,
-    pub randomly_triggered_bg: Color,
-    pub randomly_triggered_border: Border,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -174,8 +172,6 @@ impl Default for Theme {
                 progress_bar: active_color,
                 progress_bar_bg: bg,
                 progress_bar_border: border_hovered,
-                randomly_triggered_bg: Color::hex(0xfc3c3c),
-                randomly_triggered_border: Border::uncolored(4.0),
             },
             settings: Settings {
                 names: text,
@@ -402,14 +398,6 @@ pub fn container_default(_theme: &Theme) -> container::Style {
 pub fn container_separator(theme: &Theme) -> container::Style {
     container::Style {
         background: theme.separator.into(),
-        ..Default::default()
-    }
-}
-
-pub fn container_badge(theme: &Theme) -> container::Style {
-    container::Style {
-        background: theme.player_overlay.randomly_triggered_bg.into(),
-        border: theme.player_overlay.randomly_triggered_border.into(),
         ..Default::default()
     }
 }

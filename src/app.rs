@@ -111,7 +111,6 @@ impl Sound {
 }
 
 struct PlayingSound {
-    randomly_triggered: bool,
     duration: Duration,
     sound: Sound,
 }

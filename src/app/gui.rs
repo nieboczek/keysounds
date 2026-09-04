@@ -85,7 +85,7 @@ impl App {
             }
             Message::PlaySound(index) => {
                 if let Some(sound) = self.config.sounds.get(index) {
-                    self.play_sound(sound.clone(), false);
+                    self.play_sound(sound.clone());
                 }
             }
             Message::StopSound => {
@@ -96,7 +96,12 @@ impl App {
             Message::SearchSubmit => {
                 if Self::is_possible_path(&self.search) {
                     // Copy Path on Windows for some reason inserts quotation marks
-                    let path = self.search.trim_matches('"').to_string();
+                    let path = self
+                        .search
+                        .strip_circumfix('"', '"')
+                        .unwrap_or(&self.search)
+                        .to_string();
+
                     if Path::new(&path).exists() {
                         self.search.clear();
                         self.play_sound_from_path(path);
@@ -106,8 +111,9 @@ impl App {
                         .get_search_results()
                         .next()
                         .map(|(_, sound)| sound.clone());
+
                     if let Some(sound) = sound {
-                        self.play_sound(sound, false);
+                        self.play_sound(sound);
                     }
                 }
             }
