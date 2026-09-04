@@ -8,6 +8,16 @@ use crate::app::{
 };
 use iced::widget::{column, row, slider, space, text};
 
+macro_rules! create_change_message {
+    ($ctx:expr, $type:ident) => {
+        move |v| {
+            let mut prop = $ctx.prop;
+            prop.val = PropVal::$type(v);
+            Message::ChangeFilterProperty($ctx.filter_idx, prop)
+        }
+    };
+}
+
 impl App {
     pub(super) fn filter_properties<'a>(&'a self, i: usize, filter: &'a FilterType) -> Element<'a> {
         column(filter.properties().iter().map(|prop| {
@@ -40,32 +50,17 @@ impl App {
     }
 
     fn f32_slider(&self, ctx: Ctx, val: f32) -> Element<'_> {
-        let step = ctx.prop.step_f32();
-
-        slider(ctx.prop.range_f32(), val, move |v| {
-            ctx.create_change_message(PropVal::F32(v))
-        })
-        .step(step)
-        .into()
+        slider(ctx.prop.range_f32(), val, create_change_message!(ctx, F32))
+            .step(ctx.prop.step_f32())
+            .into()
     }
 
     fn i32_slider(&self, ctx: Ctx, val: i32) -> Element<'_> {
-        slider(0..=1000, val, move |v| {
-            ctx.create_change_message(PropVal::I32(v))
-        })
-        .into()
+        slider(0..=1000, val, create_change_message!(ctx, I32)).into()
     }
 }
 
 struct Ctx {
     filter_idx: usize,
     prop: FilterProperty,
-}
-
-impl Ctx {
-    fn create_change_message(&self, new_value: PropVal) -> Message {
-        let mut prop = self.prop;
-        prop.val = new_value;
-        Message::ChangeFilterProperty(self.filter_idx, prop)
-    }
 }

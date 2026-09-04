@@ -87,50 +87,48 @@ impl App {
                             .padding(0)
                             .into(),
                         button(text(filter.name()))
+                            .style(|theme: &Theme, _| button::Style {
+                                text_color: match filter.enabled {
+                                    true => theme.filter_presets.name.into(),
+                                    false => theme.filter_presets.name_disabled.into(),
+                                },
+                                ..Default::default()
+                            })
                             .on_press(Message::ExpandFilter(i))
                             .width(Length::Fill)
                             .padding(0)
                             .into(),
-                        container(
-                            row([
-                                toggler(filter.enabled)
-                                    .on_toggle(move |v| Message::ToggleFilter(i, v))
-                                    .style(|theme: &Theme, _status: toggler::Status| {
-                                        toggler::Style {
-                                            background: match filter.enabled {
-                                                true => theme.filter_presets.toggle_bg_on.into(),
-                                                false => theme.filter_presets.toggle_bg_off.into(),
-                                            },
-                                            background_border_width: 0.0,
-                                            background_border_color: theme::MISSING_COLOR.into(),
-                                            foreground: match filter.enabled {
-                                                true => theme.filter_presets.toggle_fg_on.into(),
-                                                false => theme.filter_presets.toggle_fg_off.into(),
-                                            },
-                                            foreground_border_width: 0.0,
-                                            foreground_border_color: theme::MISSING_COLOR.into(),
-                                            text_color: None,
-                                            border_radius: None,
-                                            padding_ratio: 0.1,
-                                        }
-                                    })
-                                    .into(),
-                                button(
-                                    svg(self.svgs.expand_arrow.clone())
-                                        .style(theme::svg_filter)
-                                        .rotation(match filter.expanded {
-                                            true => 0.0,
-                                            false => -std::f32::consts::FRAC_PI_2,
-                                        }),
-                                )
-                                .on_press(Message::ExpandFilter(i))
-                                .width(Length::Shrink)
-                                .padding(0)
-                                .into(),
-                            ])
-                            .align_y(Alignment::Center)
-                            .spacing(4),
+                        toggler(filter.enabled)
+                            .on_toggle(move |v| Message::ToggleFilter(i, v))
+                            .style(|theme: &Theme, _status: toggler::Status| toggler::Style {
+                                background: match filter.enabled {
+                                    true => theme.filter_presets.toggle_bg_on.into(),
+                                    false => theme.filter_presets.toggle_bg_off.into(),
+                                },
+                                background_border_width: 0.0,
+                                background_border_color: theme::MISSING_COLOR.into(),
+                                foreground: match filter.enabled {
+                                    true => theme.filter_presets.toggle_fg_on.into(),
+                                    false => theme.filter_presets.toggle_fg_off.into(),
+                                },
+                                foreground_border_width: 0.0,
+                                foreground_border_color: theme::MISSING_COLOR.into(),
+                                text_color: None,
+                                border_radius: None,
+                                padding_ratio: 0.1,
+                            })
+                            .into(),
+                        button(
+                            svg(self.svgs.expand_arrow.clone())
+                                .style(theme::svg_filter)
+                                .rotation(match filter.expanded {
+                                    true => 0.0,
+                                    false => -std::f32::consts::FRAC_PI_2,
+                                }),
                         )
+                        .on_press(Message::ExpandFilter(i))
+                        .width(Length::Shrink)
+                        .padding(0)
                         .into(),
                     ])
                     .align_y(Alignment::Center)
