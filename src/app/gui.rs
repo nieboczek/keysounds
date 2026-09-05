@@ -35,6 +35,7 @@ pub enum Message {
     SearchSubmit,
     // Filter Chain
     AddPreset,
+    AddFilter,
     SelectPreset(usize),
     ToggleFilter(usize, bool),
     ExpandFilter(usize),
@@ -123,6 +124,9 @@ impl App {
                     keybind: None,
                     filters: Vec::new(),
                 });
+            }
+            Message::AddFilter => {
+                todo!("add filter button");
             }
             Message::SelectPreset(idx) => self.selected_preset = idx,
             Message::ToggleFilter(idx, v) => {

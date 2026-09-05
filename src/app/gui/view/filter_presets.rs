@@ -68,7 +68,7 @@ impl App {
                 button(text("+ Add preset").center())
                     .on_press(Message::AddPreset)
                     .style(|theme: &Theme, status: button::Status| button::Style {
-                        text_color: theme.filter_presets.add_preset_text.into(),
+                        text_color: theme.filter_presets.add_new_text.into(),
                         // TODO(1.0): add dashed border when iced adds it or idk patch it in before 1.0
                         border: match status {
                             button::Status::Hovered | button::Status::Pressed => {
@@ -88,7 +88,23 @@ impl App {
                     .filters
                     .iter()
                     .enumerate()
-                    .map(|(i, filter)| self.filter_preset(i, filter)),
+                    .map(|(i, filter)| self.filter_preset(i, filter))
+                    .chain(iter::once(
+                        button(text("+ Add filter").width(Length::Fill).center())
+                            .on_press(Message::AddFilter)
+                            .style(|theme: &Theme, status: button::Status| button::Style {
+                                text_color: theme.filter_presets.add_new_text.into(),
+                                // TODO(1.0): add dashed border when iced adds it or idk patch it in before 1.0
+                                border: match status {
+                                    button::Status::Hovered | button::Status::Pressed => {
+                                        theme.filter_presets.border_hovered.into()
+                                    }
+                                    _ => theme.filter_presets.border.into(),
+                                },
+                                ..Default::default()
+                            })
+                            .into(),
+                    )),
             )
             .spacing(4),
         );
