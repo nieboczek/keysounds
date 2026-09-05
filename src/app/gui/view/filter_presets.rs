@@ -173,7 +173,7 @@ impl App {
         use std::fmt::Write;
 
         if filters.is_empty() {
-            return "(none)".to_string();
+            return "(no filters)".to_string();
         }
 
         let mut s = String::new();
